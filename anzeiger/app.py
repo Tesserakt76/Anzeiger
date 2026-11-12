@@ -1,4 +1,4 @@
-"""Hauptfenster: Adresszeile, Navigation, Laden im Hintergrund."""
+"""Hauptfenster: Adresszeile, Tabs, Navigation, Laden im Hintergrund."""
 
 from __future__ import annotations
 
@@ -6,138 +6,128 @@ import base64
 import queue
 import sys
 import tkinter as tk
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from importlib import resources
 from tkinter import messagebox, ttk
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from . import bookmarks, forms, images, net
 from .layout import FieldOp, ImageOp, Page, render_html, render_text
-from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, PageContext, error_page, internal_page,
-                    internal_url, is_internal)
+from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, PageContext, error_page, image_page,
+                    internal_page, internal_url, is_internal)
 from .settings import Settings, default_path
+
+if TYPE_CHECKING:
+    from .view import PageView
 
 MAX_IMAGES_PER_PAGE = 300
 MAX_MENU_ENTRIES = 50   # je Ordner im Lesezeichen-Menü
+MAX_CLOSED_TABS = 20    # wiederherstellbar mit Strg+Umschalt+T
+MAX_TAB_LABEL = 28      # Zeichen in der Tab-Beschriftung
 
 
-class App:
-    def __init__(self, root: tk.Tk, start_url: str | None = None) -> None:
+class Tab:
+    """Ein Tab: eigene Seitenansicht, eigener Verlauf, eigenes Laden im Hintergrund."""
+
+    def __init__(self, app: App) -> None:
         from .view import PageView
 
-        self.root = root
-        self.settings_path = default_path()
-        self.settings = Settings.load(self.settings_path)
-        net.set_cookies_enabled(self.settings.cookies_enabled)
-        self.bookmarks_path = bookmarks.default_path()
-        self.bookmarks_edit = False
-        self._bookmarks_cache: tuple[float, bookmarks.Folder] | None = None
-        self.page: Page | None = None
-        root.title("Anzeiger")
-        root.geometry("1000x750")
-        root.minsize(500, 300)
-
-        bar = ttk.Frame(root, padding=(6, 6, 6, 4))
-        bar.pack(side="top", fill="x")
-        self.back_button = ttk.Button(bar, text="←", width=3, command=self.back)
-        self.forward_button = ttk.Button(bar, text="→", width=3, command=self.forward)
-        self.home_button = ttk.Button(bar, text="⌂", width=3, command=self.home)
-        self.reload_button = ttk.Button(bar, text="↻", width=3, command=self.reload)
-        self.url_var = tk.StringVar()
-        self.entry = ttk.Entry(bar, textvariable=self.url_var)
-        self.star_button = ttk.Button(bar, text="☆", width=3, command=self.toggle_bookmark)
-        go_button = ttk.Button(bar, text="Los", command=self.go)
-        self.bookmark_menu = tk.Menu(root, tearoff=False, postcommand=self._fill_bookmark_menu)
-        menu_button = ttk.Menubutton(bar, text="Lesezeichen", menu=self.bookmark_menu)
-        self.back_button.pack(side="left")
-        self.forward_button.pack(side="left", padx=(2, 0))
-        self.home_button.pack(side="left", padx=(2, 0))
-        self.reload_button.pack(side="left", padx=(2, 6))
-        self.entry.pack(side="left", fill="x", expand=True)
-        self.star_button.pack(side="left", padx=(2, 0))
-        go_button.pack(side="left", padx=(6, 0))
-        menu_button.pack(side="left", padx=(6, 0))
-
-        self.status = tk.StringVar()
-        ttk.Label(root, textvariable=self.status, anchor="w", padding=(8, 2)).pack(side="bottom", fill="x")
-        self.view = PageView(root, on_link=self.follow_link, on_hover=self._on_hover,
-                             on_submit=self.submit_form)
-        self.view.pack(side="top", fill="both", expand=True)
-
-        self.entry.bind("<Return>", lambda _e: self.go())
-        self.entry.bind("<KP_Enter>", lambda _e: self.go())
-        root.bind("<Control-l>", self._focus_entry)
-        root.bind("<Alt-Left>", lambda _e: self.back())
-        root.bind("<Alt-Right>", lambda _e: self.forward())
-        root.bind("<Alt-Home>", lambda _e: self.home())
-        root.bind("<F5>", lambda _e: self.reload())
-        # Auch direkt an der Adresszeile, damit Strg+D dort kein Zeichen löscht.
-        for widget in (root, self.entry):
-            widget.bind("<Control-d>", self._bookmark_key)
-        root.bind("<Control-Shift-O>", lambda _e: self.navigate(BOOKMARKS_URL))
-        root.bind("<Control-Shift-o>", lambda _e: self.navigate(BOOKMARKS_URL))
-        root.bind("<Escape>", lambda _e: self.stop())
-
+        self.app = app
+        self.view = PageView(app.notebook, on_link=self.follow_link, on_hover=app.on_hover,
+                             on_submit=self.submit_form, on_link_new_tab=app.open_in_new_tab)
+        app.bind_tab_keys(self.view.text)
         self.history: list[str] = []
         self.position = -1
         self.current_url: str | None = None
+        self.page: Page | None = None
+        self.address = ""        # Inhalt der Adresszeile, wenn der Tab sichtbar ist
+        self.status_text = ""
         self.generation = 0
         self.loading = False
-        self.status_text = ""
-        self.results: queue.Queue = queue.Queue()
-        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="anzeiger")
-        root.protocol("WM_DELETE_WINDOW", self.close)
-        root.after(40, self._poll)
+        self.closed = False
 
-        self.navigate(HOME_URL)
-        if start_url:
-            self.url_var.set(start_url)
-            root.after(200, self.go)
-        else:
-            self.entry.focus_set()
+    @property
+    def active(self) -> bool:
+        return not self.closed and self.app.notebook.select() == str(self.view)
+
+    @property
+    def title(self) -> str:
+        if self.page is not None and self.page.title:
+            return self.page.title
+        return self.current_url or self.address or "Neuer Tab"
+
+    def set_address(self, url: str) -> None:
+        self.address = url
+        if self.active:
+            self.app.url_var.set(url)
+
+    def set_status(self, text: str) -> None:
+        self.status_text = text
+        if self.active:
+            self.app.status.set(text)
+
+    def _changed(self) -> None:
+        self.app.tab_changed(self)
 
     # -- Navigation -----------------------------------------------------------
 
-    def go(self) -> None:
-        text = self.url_var.get().strip()
-        if text:
-            self.navigate(text.lower() if is_internal(text) else net.user_url(text))
-
     def navigate(self, url: str, push: bool = True) -> None:
-        if not self._allowed(url):
-            self._set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+        if not self.app.allowed(url):
+            self.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
             return
         if push:
-            del self.history[self.position + 1:]
-            self.history.append(url)
-            self.position = len(self.history) - 1
-        self._load(url)
+            self._push(url)
+        self.load(url)
+
+    def _push(self, url: str) -> None:
+        del self.history[self.position + 1:]
+        self.history.append(url)
+        self.position = len(self.history) - 1
 
     def follow_link(self, url: str) -> None:
-        if not self._allowed(url):
-            self._set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+        if not self.app.allowed(url):
+            self.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
             return
         current = self.current_url
         fragment = urlsplit(url).fragment
         if current and fragment and net.without_fragment(url) == net.without_fragment(current):
             # Sprung innerhalb der Seite, ohne neu zu laden
-            del self.history[self.position + 1:]
-            self.history.append(url)
-            self.position += 1
+            self._push(url)
             self.current_url = url
-            self.url_var.set(url)
+            self.set_address(url)
             self.view.scroll_to(fragment)
-            self._update_buttons()
-            self._update_star()
+            self._changed()
             return
         self.navigate(url)
 
-    @staticmethod
-    def _allowed(url: str) -> bool:
-        return net.is_supported(url) or is_internal(url)
+    def back(self) -> None:
+        if self.position > 0:
+            self.position -= 1
+            self.load(self.history[self.position])
 
-    def home(self) -> None:
-        self.navigate(HOME_URL)
+    def forward(self) -> None:
+        if self.position < len(self.history) - 1:
+            self.position += 1
+            self.load(self.history[self.position])
+
+    def reload(self) -> None:
+        if self.current_url:
+            self.load(self.current_url)
+
+    def stop(self) -> None:
+        if self.loading:
+            self.generation += 1
+            self.loading = False
+            self.set_status("Abgebrochen")
+            self._changed()
+
+    def close(self) -> None:
+        """Bricht laufende Ladevorgänge ab und gibt die Anzeige frei."""
+        self.closed = True
+        self.generation += 1
+        self.view.destroy()
 
     # -- Formulare --------------------------------------------------------------
 
@@ -145,7 +135,7 @@ class App:
                     entries: list[tuple[str, str]]) -> None:
         page = self.page
         if page is None or form_index is None or not 0 <= form_index < len(page.forms):
-            self._set_status("Dieses Feld gehört zu keinem Formular.")
+            self.set_status("Dieses Feld gehört zu keinem Formular.")
             return
         form = page.forms[form_index]
         action = (submitter.formaction if submitter and submitter.formaction else form.action)
@@ -156,21 +146,21 @@ class App:
             # keine Webseite Einstellungen ändern kann.
             target = internal_url(action)
             if is_internal(page.url) and method == "post" and target == CONFIG_URL:
-                self._config_post(entries)
+                self.app.config_post(self, entries)
             elif is_internal(page.url) and method == "post" and target == BOOKMARKS_URL:
-                self._bookmarks_post(entries)
+                self.app.bookmarks_post(self, entries)
             else:
-                self._set_status("Formular abgelehnt: Ziel ist eine eingebaute Seite.")
+                self.set_status("Formular abgelehnt: Ziel ist eine eingebaute Seite.")
             return
         if not net.is_supported(action):
-            self._set_status(f"Formular nicht abgeschickt – nur HTTP und HTTPS werden unterstützt: {action}")
+            self.set_status(f"Formular nicht abgeschickt – nur HTTP und HTTPS werden unterstützt: {action}")
             return
         if urlsplit(page.url).scheme == "https" and urlsplit(action).scheme == "http":
             if not messagebox.askyesno(
                     "Unverschlüsselt senden?",
                     f"Die Formulardaten würden unverschlüsselt (HTTP) gesendet an:\n{action}\n\n"
-                    "Andere könnten sie mitlesen. Trotzdem senden?", icon="warning", parent=self.root):
-                self._set_status("Abschicken abgebrochen.")
+                    "Andere könnten sie mitlesen. Trotzdem senden?", icon="warning", parent=self.app.root):
+                self.set_status("Abschicken abgebrochen.")
                 return
         submission = forms.build_submission(action, method, enctype, entries)
         if submission.method == "GET":
@@ -178,12 +168,437 @@ class App:
             return
         # POST: im Verlauf steht nur die Adresse; Zurück/Neu laden rufen sie per GET ab
         # und schicken die Formulardaten nicht erneut.
-        del self.history[self.position + 1:]
-        self.history.append(submission.url)
-        self.position = len(self.history) - 1
-        self._load(submission.url, submission, page.url)
+        self._push(submission.url)
+        self.load(submission.url, submission, page.url)
 
-    def _config_post(self, entries: list[tuple[str, str]]) -> None:
+    def show_internal(self, url: str, message: str = "") -> None:
+        self.generation += 1
+        self._page_loaded(url, self.app.render_internal(url, message))
+
+    # -- Laden im Hintergrund -------------------------------------------------
+
+    def load(self, url: str, submission: forms.Submission | None = None,
+             from_page: str | None = None) -> None:
+        self.generation += 1
+        generation = self.generation
+        self.loading = True
+        self.set_address(url)
+        self.set_status(f"Lade {url} …")
+        self._changed()
+        if is_internal(url):
+            # Eingebaute Seiten sofort anzeigen, ohne Netzzugriff
+            self._page_loaded(url, self.app.render_internal(url))
+            return
+        if submission is not None:
+            self.set_status(f"Sende Formular an {url} …")
+        columns = self.app.columns()
+        max_width = self.app.content_width()
+        results = self.app.results
+
+        def work() -> None:
+            try:
+                if submission is not None:
+                    response = net.fetch(url, data=submission.body, content_type=submission.content_type,
+                                         from_page=from_page)
+                else:
+                    response = net.fetch(url)
+                page = self._build_page(response, columns, max_width)
+                results.put((self, generation, "page", (url, page)))
+            except Exception as error:  # Fehler als Seite anzeigen
+                results.put((self, generation, "error", (url, str(error) or type(error).__name__)))
+
+        self.app.pool.submit(work)
+
+    @staticmethod
+    def _build_page(response: net.Response, columns: int, max_width: int) -> Page:
+        ctype = response.content_type
+        if ctype in images.CONTENT_TYPES and response.status < 400:
+            return Tab._image_page(response, max_width)
+        if ctype in ("text/html", "application/xhtml+xml"):
+            page = render_html(net.decode_body(response.body, response.charset), response.url, columns)
+        elif ctype.startswith("text/"):
+            page = render_text(net.decode_body(response.body, response.charset), response.url)
+        else:
+            page = render_html(error_page(response.url, f"Inhaltstyp „{ctype}“ wird nicht unterstützt."),
+                               response.url)
+        if response.status >= 400 and not page.title:
+            page.title = f"{response.status} {response.reason}"
+        return page
+
+    @staticmethod
+    def _image_page(response: net.Response, max_width: int) -> Page:
+        """Direkt aufgerufenes Bild: einmal dekodieren und als fertiges PNG an die Seite hängen."""
+        try:
+            image_format, size = images.probe(response.body)
+            png, shown = images.decode_image(response.body, max_width=max_width)
+        except images.ImageError as error:
+            return render_html(error_page(response.url, f"Bild kann nicht angezeigt werden: {error}"),
+                               response.url)
+        page = render_html(image_page(response.url, image_format, size, shown), response.url)
+        page.preloaded[response.url] = png
+        return page
+
+    def receive(self, kind: str, payload: tuple) -> None:
+        """Verarbeitet ein Ergebnis aus dem Hintergrund (nur aktuelle Generation)."""
+        if kind == "page":
+            self._page_loaded(*payload)
+        elif kind == "error":
+            url, message = payload
+            self.loading = False
+            self.current_url = url
+            self._show(render_html(error_page(url, message), url))
+            self.set_status(message)
+            self._changed()
+        elif kind == "image":
+            self.view.set_image(*payload)
+        elif kind == "image-error":
+            self.view.image_failed(*payload)
+
+    def _page_loaded(self, requested: str, page: Page) -> None:
+        self.loading = False
+        # Bei Weiterleitungen die tatsächliche Adresse anzeigen, Fragment beibehalten.
+        fragment = urlsplit(requested).fragment
+        url = page.url + ("#" + fragment if fragment and "#" not in page.url else "")
+        self.current_url = url
+        if 0 <= self.position < len(self.history):
+            self.history[self.position] = url
+        self.set_address(url)
+        self._show(page)
+        if fragment:
+            self.view.scroll_to(fragment)
+        self.set_status("Fertig")
+        self._changed()
+        self._load_images(page)
+
+    def _show(self, page: Page) -> None:
+        self.page = page
+        settings = self.app.settings
+        self.view.show(page, lambda op: self._image_note(page.url, op),
+                       collapse_lists=settings.lists_collapsed,
+                       collapse_sublists=settings.sublists_collapsed)
+
+    @staticmethod
+    def _image_note(page_url: str, op: ImageOp) -> str | None:
+        if not op.src:
+            return "Bild ohne Adresse"
+        if not net.same_server(page_url, op.src):
+            return f"Bild von fremdem Server – nicht geladen: {op.src}"
+        return None
+
+    def _load_images(self, page: Page) -> None:
+        generation = self.generation
+        max_width = self.app.content_width()
+        results = self.app.results
+        for number, op in self.view.images[:MAX_IMAGES_PER_PAGE]:
+            if self._image_note(page.url, op) is not None:
+                continue
+            if op.src in page.preloaded:   # schon mit der Seite geladen
+                self.view.set_image(number, page.preloaded[op.src])
+                continue
+
+            def work(number: int = number, op: ImageOp = op) -> None:
+                if generation != self.generation:
+                    return
+                try:
+                    response = net.fetch(op.src, accept="image/png,image/jpeg,image/gif,image/webp,image/bmp",
+                                         max_bytes=net.MAX_IMAGE_BYTES, first_party=page.url)
+                    if response.status >= 400:
+                        raise images.ImageError(f"HTTP {response.status}")
+                    png, _size = images.decode_image(response.body, op.width, op.height, max_width)
+                    results.put((self, generation, "image", (number, png)))
+                except Exception as error:
+                    results.put((self, generation, "image-error",
+                                 (number, f"Bild nicht geladen ({error}): {op.src}")))
+
+            self.app.pool.submit(work)
+
+
+class App:
+    def __init__(self, root: tk.Tk, start_url: str | None = None) -> None:
+        self.root = root
+        self.settings_path = default_path()
+        self.settings = Settings.load(self.settings_path)
+        net.set_cookies_enabled(self.settings.cookies_enabled)
+        self.bookmarks_path = bookmarks.default_path()
+        self.bookmarks_edit = False
+        self._bookmarks_cache: tuple[float, bookmarks.Folder] | None = None
+        root.title("Anzeiger")
+        root.geometry("1000x750")
+        root.minsize(500, 300)
+
+        bar = ttk.Frame(root, padding=(6, 6, 6, 4))
+        bar.pack(side="top", fill="x")
+        self.back_button = ttk.Button(bar, text="←", width=3, command=lambda: self.tab.back())
+        self.forward_button = ttk.Button(bar, text="→", width=3, command=lambda: self.tab.forward())
+        self.home_button = ttk.Button(bar, text="⌂", width=3, command=self.home)
+        self.reload_button = ttk.Button(bar, text="↻", width=3, command=lambda: self.tab.reload())
+        self.url_var = tk.StringVar()
+        self.entry = ttk.Entry(bar, textvariable=self.url_var)
+        self.star_button = ttk.Button(bar, text="☆", width=3, command=self.toggle_bookmark)
+        go_button = ttk.Button(bar, text="Los", command=self.go)
+        self.bookmark_menu = tk.Menu(root, tearoff=False, postcommand=self._fill_bookmark_menu)
+        menu_button = ttk.Menubutton(bar, text="Lesezeichen", menu=self.bookmark_menu)
+        new_tab_button = ttk.Button(bar, text="+", width=3, command=self.new_tab_key)
+        self.back_button.pack(side="left")
+        self.forward_button.pack(side="left", padx=(2, 0))
+        self.home_button.pack(side="left", padx=(2, 0))
+        self.reload_button.pack(side="left", padx=(2, 6))
+        self.entry.pack(side="left", fill="x", expand=True)
+        self.star_button.pack(side="left", padx=(2, 0))
+        go_button.pack(side="left", padx=(6, 0))
+        menu_button.pack(side="left", padx=(6, 0))
+        new_tab_button.pack(side="left", padx=(6, 0))
+
+        self.status = tk.StringVar()
+        ttk.Label(root, textvariable=self.status, anchor="w", padding=(8, 2)).pack(side="bottom", fill="x")
+        self.notebook = ttk.Notebook(root, takefocus=False)
+        self.notebook.pack(side="top", fill="both", expand=True)
+        self.notebook.bind("<<NotebookTabChanged>>", self._tab_switched)
+        self.notebook.bind("<ButtonRelease-2>", self._tab_middle_click)
+        self.notebook.bind("<Button-3>", self._tab_context_menu)
+        self.notebook.bind("<Double-Button-1>", self._tab_bar_double_click)
+        self.tab_menu = tk.Menu(root, tearoff=False)
+
+        self.entry.bind("<Return>", lambda _e: self.go())
+        self.entry.bind("<KP_Enter>", lambda _e: self.go())
+        root.bind("<Control-l>", self._focus_entry)
+        root.bind("<Alt-Left>", lambda _e: self.tab.back())
+        root.bind("<Alt-Right>", lambda _e: self.tab.forward())
+        root.bind("<Alt-Home>", lambda _e: self.home())
+        root.bind("<F5>", lambda _e: self.tab.reload())
+        # Auch direkt an der Adresszeile, damit Strg+D dort kein Zeichen löscht.
+        for widget in (root, self.entry):
+            widget.bind("<Control-d>", self._bookmark_key)
+        root.bind("<Control-Shift-O>", lambda _e: self.tab.navigate(BOOKMARKS_URL))
+        root.bind("<Control-Shift-o>", lambda _e: self.tab.navigate(BOOKMARKS_URL))
+        root.bind("<Escape>", lambda _e: self.tab.stop())
+        self.bind_tab_keys(root)
+
+        self._tabs: dict[str, Tab] = {}
+        self.closed_tabs: list[tuple[list[str], int, int]] = []   # (Verlauf, Position, Tab-Nr.)
+        self._opened_from: tuple[Tab, Tab] | None = None   # (Ursprung, zuletzt daraus geöffnet)
+        self.results: queue.Queue = queue.Queue()
+        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="anzeiger")
+        root.protocol("WM_DELETE_WINDOW", self.close)
+        self._poll_job = root.after(40, self._poll)
+
+        self.new_tab(HOME_URL)
+        if start_url:
+            self.tab.set_address(start_url)   # bleibt auch nach dem ersten Tabwechsel-Ereignis stehen
+            root.after(200, self.go)
+        else:
+            self.entry.focus_set()
+
+    @property
+    def tab(self) -> Tab:
+        """Der sichtbare Tab."""
+        return self._tabs[self.notebook.select()]
+
+    @property
+    def tabs(self) -> list[Tab]:
+        """Alle Tabs in der angezeigten Reihenfolge."""
+        return [self._tabs[name] for name in self.notebook.tabs()]
+
+    # -- Navigation im sichtbaren Tab ------------------------------------------
+
+    def go(self) -> None:
+        text = self.url_var.get().strip()
+        if text:
+            self.tab.navigate(text.lower() if is_internal(text) else net.user_url(text))
+
+    @staticmethod
+    def allowed(url: str) -> bool:
+        return net.is_supported(url) or is_internal(url)
+
+    def home(self) -> None:
+        self.tab.navigate(HOME_URL)
+
+    def close(self) -> None:
+        for tab in self._tabs.values():
+            tab.generation += 1
+        self.root.after_cancel(self._poll_job)
+        self.pool.shutdown(wait=False, cancel_futures=True)
+        self.root.destroy()
+
+    # -- Tabs -----------------------------------------------------------------
+
+    def bind_tab_keys(self, widget: tk.Misc) -> None:
+        """Tastenkürzel für Tabs; auch am Textfeld, damit dessen eigene Belegung nicht greift."""
+        def key(action: Callable[[], object]) -> Callable[[tk.Event], str]:
+            def handler(_event: tk.Event) -> str:
+                action()
+                return "break"
+            return handler
+
+        for sequence, action in (
+                ("<Control-t>", self.new_tab_key),
+                ("<Control-w>", self.close_tab),
+                ("<Control-Shift-T>", self.reopen_closed_tab),
+                ("<Control-Shift-t>", self.reopen_closed_tab),
+                ("<Control-Tab>", lambda: self.cycle_tabs(1)),
+                ("<Control-Next>", lambda: self.cycle_tabs(1)),
+                ("<Control-Shift-Tab>", lambda: self.cycle_tabs(-1)),
+                ("<Control-ISO_Left_Tab>", lambda: self.cycle_tabs(-1)),
+                ("<Control-Prior>", lambda: self.cycle_tabs(-1))):
+            widget.bind(sequence, key(action))
+        for number in range(1, 10):
+            widget.bind(f"<Control-Key-{number}>", key(lambda n=number: self.select_tab(n)))
+
+    def new_tab(self, url: str | None = HOME_URL, select: bool = True, after: Tab | None = None) -> Tab:
+        """Öffnet einen Tab am Ende oder rechts neben `after` und lädt `url`."""
+        tab = Tab(self)
+        self._tabs[str(tab.view)] = tab
+        if after is not None and not after.closed:
+            position = self.notebook.index(after.view) + 1
+            if position >= self.notebook.index("end"):
+                position = "end"   # ttk lehnt die Anzahl der Tabs als Position ab
+            self.notebook.insert(position, tab.view, text="Neuer Tab")
+        else:
+            self.notebook.add(tab.view, text="Neuer Tab")
+        if select:
+            self.notebook.select(tab.view)
+        if url:
+            tab.navigate(url)
+        return tab
+
+    def new_tab_key(self) -> None:
+        self.new_tab(HOME_URL)
+        self._focus_entry()
+
+    def open_in_new_tab(self, url: str) -> None:
+        """Link per Mittel- oder Strg+Klick im Hintergrund öffnen, rechts neben dem Ursprung.
+
+        Mehrere Links aus demselben Tab landen in der Reihenfolge des Öffnens nebeneinander.
+        """
+        current = self.tab
+        if not self.allowed(url):
+            current.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+            return
+        after = current
+        if self._opened_from and self._opened_from[0] is current and not self._opened_from[1].closed:
+            after = self._opened_from[1]
+        tab = self.new_tab(url, select=False, after=after)
+        self._opened_from = (current, tab)
+        current.set_status(f"In neuem Tab geöffnet: {url}")
+
+    def close_tab(self, tab: Tab | None = None) -> None:
+        """Schließt einen Tab; der letzte wird durch einen leeren Tab mit der Startseite ersetzt."""
+        tab = tab or self.tab
+        if len(self._tabs) == 1:
+            self.new_tab(HOME_URL)
+        if tab.history:
+            self.closed_tabs.append((list(tab.history), tab.position, self.notebook.index(tab.view)))
+            del self.closed_tabs[:-MAX_CLOSED_TABS]
+        self.notebook.forget(tab.view)
+        del self._tabs[str(tab.view)]
+        tab.close()
+
+    def close_other_tabs(self, keep: Tab) -> None:
+        for tab in self.tabs:
+            if tab is not keep:
+                self.close_tab(tab)
+        self.notebook.select(keep.view)
+
+    def reopen_closed_tab(self) -> None:
+        if not self.closed_tabs:
+            self.tab.set_status("Es gibt keinen geschlossenen Tab zum Wiederherstellen.")
+            return
+        history, position, index = self.closed_tabs.pop()
+        tab = self.new_tab(None)
+        if index < self.notebook.index("end") - 1:
+            self.notebook.insert(index, tab.view)   # wieder an die alte Stelle
+        tab.history, tab.position = history, position
+        tab.load(history[position])
+
+    def select_tab(self, number: int) -> None:
+        """Strg+1 … Strg+8 wählen den n-ten Tab, Strg+9 den letzten."""
+        names = self.notebook.tabs()
+        if names:
+            self.notebook.select(names[-1] if number == 9 else names[min(number, len(names)) - 1])
+
+    def cycle_tabs(self, step: int) -> None:
+        names = self.notebook.tabs()
+        if len(names) > 1:
+            self.notebook.select(names[(names.index(self.notebook.select()) + step) % len(names)])
+
+    def tab_changed(self, tab: Tab) -> None:
+        """Beschriftung des Tabs und – falls sichtbar – Adresszeile, Knöpfe und Titel nachführen."""
+        if tab.closed:
+            return
+        label = "Lädt …" if tab.loading else _short(tab.title, MAX_TAB_LABEL)
+        self.notebook.tab(tab.view, text=label)
+        if tab.active:
+            self._update_chrome()
+
+    def _update_chrome(self) -> None:
+        tab = self.tab
+        self.url_var.set(tab.address)
+        self.status.set(tab.status_text)
+        self._update_buttons()
+        self._update_star()
+        title = tab.page.title if tab.page is not None and tab.page.title else ""
+        self.root.title(f"{title} – Anzeiger" if title else "Anzeiger")
+
+    def _tab_switched(self, _event: tk.Event) -> None:
+        if not self._tabs:
+            return
+        self._opened_from = None
+        self._update_chrome()
+        # Lag der Fokus in der Seite des vorigen Tabs, wandert er mit in den neuen.
+        try:
+            focus = self.root.focus_get()
+        except KeyError:
+            focus = None
+        if focus is not None and str(focus).startswith(str(self.notebook) + "."):
+            self.tab.view.text.focus_set()
+
+    def _tab_at(self, event: tk.Event) -> Tab | None:
+        index = str(self.notebook.tk.call(str(self.notebook), "identify", "tab", event.x, event.y))
+        if not index.isdigit():
+            return None
+        return self._tabs.get(self.notebook.tabs()[int(index)])
+
+    def _tab_middle_click(self, event: tk.Event) -> None:
+        tab = self._tab_at(event)
+        if tab is not None:
+            self.close_tab(tab)
+
+    def _tab_bar_double_click(self, event: tk.Event) -> None:
+        if self._tab_at(event) is None:   # freie Fläche neben den Tabs
+            self.new_tab_key()
+
+    def _tab_context_menu(self, event: tk.Event) -> None:
+        tab = self._tab_at(event)
+        menu = self.tab_menu
+        menu.delete(0, "end")
+        if tab is not None:
+            menu.add_command(label="Neu laden", command=tab.reload)
+            menu.add_command(label="Tab schließen", accelerator="Strg+W", command=lambda: self.close_tab(tab))
+            menu.add_command(label="Andere Tabs schließen", command=lambda: self.close_other_tabs(tab),
+                             state="normal" if len(self._tabs) > 1 else "disabled")
+            menu.add_separator()
+        menu.add_command(label="Neuer Tab", accelerator="Strg+T", command=self.new_tab_key)
+        menu.add_command(label="Geschlossenen Tab wieder öffnen", accelerator="Strg+Umschalt+T",
+                         command=self.reopen_closed_tab,
+                         state="normal" if self.closed_tabs else "disabled")
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _sized_view(self) -> PageView:
+        """Eine Seitenansicht mit echter Größe (Tabs im Hintergrund sind nicht ausgemessen)."""
+        for tab in (self.tab, *self._tabs.values()):
+            if tab.view.text.winfo_width() > 1:
+                return tab.view
+        return self.tab.view
+
+    def columns(self) -> int:
+        return self._sized_view().columns()
+
+    def content_width(self) -> int:
+        return self._sized_view().content_width()
+
+    # -- Eingebaute Seiten --------------------------------------------------------
+
+    def config_post(self, tab: Tab, entries: list[tuple[str, str]]) -> None:
         data: dict[str, str] = dict(entries)
         action = data.get("action")
         if action == "clear-cookies":
@@ -201,8 +616,13 @@ class App:
                 message = f"Einstellungen gelten nur bis zum Beenden – Speichern fehlgeschlagen: {error}"
         else:
             message = "Unbekannte Aktion."
-        self._show_internal(CONFIG_URL, message)
-        self._set_status(message)
+        tab.show_internal(CONFIG_URL, message)
+        tab.set_status(message)
+
+    def render_internal(self, url: str, message: str = "") -> Page:
+        ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message,
+                          self._bookmarks(), self.bookmarks_path, self.bookmarks_edit)
+        return render_html(internal_page(url, ctx), internal_url(url), self.columns())
 
     # -- Lesezeichen ---------------------------------------------------------------
 
@@ -226,13 +646,14 @@ class App:
 
     def toggle_bookmark(self) -> None:
         """Setzt ein Lesezeichen für die aktuelle Seite oder entfernt es nach Rückfrage."""
-        url = self.current_url
+        tab = self.tab
+        url = tab.current_url
         if not url or not net.is_supported(url):
             self._set_status("Nur Webseiten (HTTP/HTTPS) können als Lesezeichen gespeichert werden.")
             return
         try:
             if self._bookmarks().find_url(url) is None:
-                title = self.page.title if self.page and self.page.title else url
+                title = tab.page.title if tab.page and tab.page.title else url
                 bookmarks.add(self.bookmarks_path, url, title)
                 message = f"Lesezeichen gespeichert: {title}"
             elif messagebox.askyesno("Lesezeichen entfernen?",
@@ -247,20 +668,20 @@ class App:
         self._set_status(message)
 
     def _update_star(self) -> None:
-        url = self.current_url
+        url = self.tab.current_url
         marked = bool(url and net.is_supported(url) and self._bookmarks().find_url(url) is not None)
         self.star_button.configure(text="★" if marked else "☆")
 
     def _fill_bookmark_menu(self) -> None:
         menu = self.bookmark_menu
         menu.delete(0, "end")
-        url = self.current_url
+        url = self.tab.current_url
         marked = bool(url and net.is_supported(url) and self._bookmarks().find_url(url) is not None)
         menu.add_command(label="Lesezeichen entfernen" if marked else "Lesezeichen für diese Seite",
                          accelerator="Strg+D", command=self.toggle_bookmark,
                          state="normal" if url and net.is_supported(url) else "disabled")
         menu.add_command(label="Lesezeichen verwalten", accelerator="Strg+Umschalt+O",
-                         command=lambda: self.navigate(BOOKMARKS_URL))
+                         command=lambda: self.tab.navigate(BOOKMARKS_URL))
         root = self._bookmarks()
         if root.children:
             menu.add_separator()
@@ -271,7 +692,7 @@ class App:
         for child in folder.children:
             if shown >= MAX_MENU_ENTRIES:
                 menu.add_command(label="… weitere unter „Lesezeichen verwalten“",
-                                 command=lambda: self.navigate(BOOKMARKS_URL))
+                                 command=lambda: self.tab.navigate(BOOKMARKS_URL))
                 break
             if isinstance(child, bookmarks.Folder):
                 submenu = tk.Menu(menu, tearoff=False)
@@ -281,14 +702,14 @@ class App:
                 menu.add_cascade(label=_short(child.title or "(Ordner ohne Namen)"), menu=submenu)
             elif isinstance(child, bookmarks.Bookmark):
                 menu.add_command(label=_short(child.title or child.url),
-                                 command=lambda u=child.url: self.follow_link(u))
+                                 command=lambda u=child.url: self.tab.follow_link(u))
             else:   # Trennlinie, aber nie zwei hintereinander
                 if menu.index("end") is not None and menu.type("end") != "separator":
                     menu.add_separator()
                 continue
             shown += 1
 
-    def _bookmarks_post(self, entries: list[tuple[str, str]]) -> None:
+    def bookmarks_post(self, tab: Tab, entries: list[tuple[str, str]]) -> None:
         data: dict[str, str] = dict(entries)
         action = data.get("action")
         where = bookmarks.parse_path(data.get("path", ""))
@@ -314,180 +735,35 @@ class App:
                 message = "Unbekannte Aktion."
         except OSError as error:
             message = f"Lesezeichen konnten nicht gespeichert werden: {error}"
-        self._show_internal(BOOKMARKS_URL, message)
+        tab.show_internal(BOOKMARKS_URL, message)
         if message:
-            self._set_status(message)
+            tab.set_status(message)
 
-    def _render_internal(self, url: str, message: str = "") -> Page:
-        ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message,
-                          self._bookmarks(), self.bookmarks_path, self.bookmarks_edit)
-        return render_html(internal_page(url, ctx), internal_url(url), self.view.columns())
-
-    def _show_internal(self, url: str, message: str = "") -> None:
-        self.generation += 1
-        self.loading = False
-        self._page_loaded(url, self._render_internal(url, message))
-
-    def back(self) -> None:
-        if self.position > 0:
-            self.position -= 1
-            self._load(self.history[self.position])
-
-    def forward(self) -> None:
-        if self.position < len(self.history) - 1:
-            self.position += 1
-            self._load(self.history[self.position])
-
-    def reload(self) -> None:
-        if self.current_url:
-            self._load(self.current_url)
-
-    def stop(self) -> None:
-        if self.loading:
-            self.generation += 1
-            self.loading = False
-            self._set_status("Abgebrochen")
-
-    def close(self) -> None:
-        self.generation += 1
-        self.pool.shutdown(wait=False, cancel_futures=True)
-        self.root.destroy()
-
-    # -- Laden im Hintergrund -------------------------------------------------
-
-    def _load(self, url: str, submission: forms.Submission | None = None,
-              from_page: str | None = None) -> None:
-        self.generation += 1
-        generation = self.generation
-        self.loading = True
-        self.url_var.set(url)
-        self._update_buttons()
-        self._set_status(f"Lade {url} …")
-        columns = self.view.columns()
-        if is_internal(url):
-            # Eingebaute Seiten sofort anzeigen, ohne Netzzugriff
-            self._page_loaded(url, self._render_internal(url))
-            return
-        if submission is not None:
-            self._set_status(f"Sende Formular an {url} …")
-
-        def work() -> None:
-            try:
-                if submission is not None:
-                    response = net.fetch(url, data=submission.body, content_type=submission.content_type,
-                                         from_page=from_page)
-                else:
-                    response = net.fetch(url)
-                page = self._build_page(response, columns)
-                self.results.put((generation, "page", (url, page)))
-            except Exception as error:  # Fehler als Seite anzeigen
-                self.results.put((generation, "error", (url, str(error) or type(error).__name__)))
-
-        self.pool.submit(work)
-
-    @staticmethod
-    def _build_page(response: net.Response, columns: int) -> Page:
-        ctype = response.content_type
-        if ctype in ("text/html", "application/xhtml+xml"):
-            page = render_html(net.decode_body(response.body, response.charset), response.url, columns)
-        elif ctype.startswith("text/"):
-            page = render_text(net.decode_body(response.body, response.charset), response.url)
-        else:
-            page = render_html(error_page(response.url, f"Inhaltstyp „{ctype}“ wird nicht unterstützt."),
-                               response.url)
-        if response.status >= 400 and not page.title:
-            page.title = f"{response.status} {response.reason}"
-        return page
+    # -- Ergebnisse aus dem Hintergrund und Anzeige ---------------------------------
 
     def _poll(self) -> None:
         try:
             while True:
-                generation, kind, payload = self.results.get_nowait()
-                if generation != self.generation:
-                    continue
-                if kind == "page":
-                    self._page_loaded(*payload)
-                elif kind == "error":
-                    url, message = payload
-                    self.loading = False
-                    self.current_url = url
-                    self._show(render_html(error_page(url, message), url))
-                    self._set_status(message)
-                    self._update_star()
-                elif kind == "image":
-                    self.view.set_image(*payload)
-                elif kind == "image-error":
-                    self.view.image_failed(*payload)
+                tab, generation, kind, payload = self.results.get_nowait()
+                if not tab.closed and generation == tab.generation:
+                    tab.receive(kind, payload)
         except queue.Empty:
             pass
-        self.root.after(40, self._poll)
+        self._poll_job = self.root.after(40, self._poll)
 
-    def _page_loaded(self, requested: str, page: Page) -> None:
-        self.loading = False
-        # Bei Weiterleitungen die tatsächliche Adresse anzeigen, Fragment beibehalten.
-        fragment = urlsplit(requested).fragment
-        url = page.url + ("#" + fragment if fragment and "#" not in page.url else "")
-        self.current_url = url
-        if 0 <= self.position < len(self.history):
-            self.history[self.position] = url
-        self.url_var.set(url)
-        self._show(page)
-        if fragment:
-            self.view.scroll_to(fragment)
-        self._set_status("Fertig")
-        self._update_star()
-        self._load_images(page)
-
-    def _show(self, page: Page) -> None:
-        self.page = page
-        self.view.show(page, lambda op: self._image_note(page.url, op),
-                       collapse_lists=self.settings.lists_collapsed,
-                       collapse_sublists=self.settings.sublists_collapsed)
-        self.root.title(f"{page.title} – Anzeiger" if page.title else "Anzeiger")
-
-    @staticmethod
-    def _image_note(page_url: str, op: ImageOp) -> str | None:
-        if not op.src:
-            return "Bild ohne Adresse"
-        if not net.same_server(page_url, op.src):
-            return f"Bild von fremdem Server – nicht geladen: {op.src}"
-        return None
-
-    def _load_images(self, page: Page) -> None:
-        generation = self.generation
-        max_width = self.view.content_width()
-        for number, op in self.view.images[:MAX_IMAGES_PER_PAGE]:
-            if self._image_note(page.url, op) is not None:
-                continue
-
-            def work(number: int = number, op: ImageOp = op) -> None:
-                if generation != self.generation:
-                    return
-                try:
-                    response = net.fetch(op.src, accept="image/png,image/jpeg,image/gif,image/webp,image/bmp",
-                                         max_bytes=net.MAX_IMAGE_BYTES, first_party=page.url)
-                    if response.status >= 400:
-                        raise images.ImageError(f"HTTP {response.status}")
-                    png, _size = images.decode_image(response.body, op.width, op.height, max_width)
-                    self.results.put((generation, "image", (number, png)))
-                except Exception as error:
-                    self.results.put((generation, "image-error",
-                                      (number, f"Bild nicht geladen ({error}): {op.src}")))
-
-            self.pool.submit(work)
-
-    # -- Anzeige --------------------------------------------------------------
-
-    def _on_hover(self, message: str | None) -> None:
-        self.status.set(message if message else self.status_text)
+    def on_hover(self, message: str | None) -> None:
+        self.status.set(message if message else self.tab.status_text)
 
     def _set_status(self, text: str) -> None:
-        self.status_text = text
-        self.status.set(text)
+        if self._tabs:
+            self.tab.set_status(text)
+        else:
+            self.status.set(text)
 
     def _update_buttons(self) -> None:
-        self.back_button.state(["!disabled"] if self.position > 0 else ["disabled"])
-        has_next = self.position < len(self.history) - 1
+        tab = self.tab
+        self.back_button.state(["!disabled"] if tab.position > 0 else ["disabled"])
+        has_next = tab.position < len(tab.history) - 1
         self.forward_button.state(["!disabled"] if has_next else ["disabled"])
 
     def _focus_entry(self, _event: tk.Event | None = None) -> str:

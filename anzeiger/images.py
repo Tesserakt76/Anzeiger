@@ -12,6 +12,9 @@ import io
 from PIL import Image
 
 ALLOWED_FORMATS = ("PNG", "JPEG", "GIF", "BMP", "WEBP")
+# Inhaltstypen, die als eigene Seite angezeigt werden (direkt aufgerufene Bildadresse)
+CONTENT_TYPES = ("image/png", "image/jpeg", "image/pjpeg", "image/gif", "image/bmp",
+                 "image/x-ms-bmp", "image/webp")
 MAX_PIXELS = 40_000_000
 MAX_HEIGHT = 4000
 
@@ -39,6 +42,15 @@ def target_size(size: tuple[int, int], width: int | None, height: int | None,
     if h > MAX_HEIGHT:
         w, h = max(1, round(w * MAX_HEIGHT / h)), MAX_HEIGHT
     return w, h
+
+
+def probe(data: bytes) -> tuple[str, tuple[int, int]]:
+    """Liefert (Format, (Breite, Höhe)), ohne das Bild zu dekodieren."""
+    try:
+        image = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)
+    except Exception as error:
+        raise ImageError("kein unterstütztes Bildformat (PNG, JPEG, GIF, BMP, WebP)") from error
+    return image.format or "?", image.size
 
 
 def decode_image(data: bytes, width: int | None = None, height: int | None = None,

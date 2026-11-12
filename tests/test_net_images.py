@@ -64,3 +64,37 @@ class ImageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImagePageTest(unittest.TestCase):
+    """Direkt aufgerufene Bildadressen werden als eigene Seite angezeigt."""
+
+    def response(self, body: bytes, ctype: str = "image/jpeg", status: int = 200) -> net.Response:
+        return net.Response("https://a.de/fotos/Gr%C3%BCn.jpg", status, "OK", ctype, None, body)
+
+    def jpeg(self, size=(1200, 600)) -> bytes:
+        out = io.BytesIO()
+        Image.new("RGB", size, "green").save(out, "JPEG")
+        return out.getvalue()
+
+    def test_jpeg_page(self):
+        from anzeiger.app import Tab
+        from anzeiger.layout import ImageOp
+        page = Tab._build_page(self.response(self.jpeg()), 100, 600)
+        self.assertEqual(page.title, "Grün.jpg (1200×600)")
+        image_ops = [op for op in page.ops if isinstance(op, ImageOp)]
+        self.assertEqual([op.src for op in image_ops], ["https://a.de/fotos/Gr%C3%BCn.jpg"])
+        png = page.preloaded[image_ops[0].src]
+        self.assertEqual(Image.open(io.BytesIO(png)).size, (600, 300))
+        text = "".join(getattr(op, "text", "") for op in page.ops)
+        self.assertIn("JPEG, 1200×600 Pixel – verkleinert auf 600×300", text)
+        self.assertTrue(net.same_server(page.url, image_ops[0].src))
+
+    def test_broken_or_unsupported(self):
+        from anzeiger.app import Tab
+        page = Tab._build_page(self.response(b"kein Bild"), 100, 600)
+        self.assertEqual(page.title, "Fehler")
+        self.assertEqual(page.preloaded, {})
+        page = Tab._build_page(self.response(b"<svg/>", "image/svg+xml"), 100, 600)
+        self.assertEqual(page.title, "Fehler")
+        self.assertEqual(images.probe(self.jpeg((3, 2))), ("JPEG", (3, 2)))

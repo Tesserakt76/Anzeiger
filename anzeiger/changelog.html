@@ -10,6 +10,87 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.7.0">0.7.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Bildadressen direkt anzeigen.</b> Bisher führte das Aufrufen einer Bildadresse –
+      etwa ein Link auf <code>foto.jpg</code> oder eine in die Adresszeile eingegebene
+      Bild-URL – zur Fehlerseite „Inhaltstyp „image/jpeg“ wird nicht unterstützt“. Bilder
+      wurden nur eingebettet in HTML-Seiten (<code>&lt;img&gt;</code>) gezeigt.
+    <ul>
+      <li>Antwortet der Server mit einem der Typen <code>image/png</code>,
+          <code>image/jpeg</code> (auch <code>image/pjpeg</code>), <code>image/gif</code>,
+          <code>image/bmp</code> (auch <code>image/x-ms-bmp</code>) oder <code>image/webp</code>,
+          erscheint eine eigene Seite mit dem Bild.</li>
+      <li>Ist das Bild breiter als das Fenster, wird es auf Fensterbreite verkleinert (sehr
+          hohe Bilder auf höchstens 4000 Pixel Höhe). Unter dem Bild stehen Format und
+          Originalgröße, ggf. mit der angezeigten Größe, z.B. „JPEG, 2400×1200 Pixel –
+          verkleinert auf 923×462“.</li>
+      <li>Seiten- und Tabtitel ist der Dateiname mit Originalgröße, z.B.
+          „foto.jpg (2400×1200)“. Prozentkodierte Dateinamen werden lesbar dargestellt.</li>
+      <li>Es gelten dieselben Schutzregeln wie für eingebettete Bilder: nur die genannten
+          Rasterformate (Pillow öffnet nur diese), höchstens 40 Millionen Pixel. Ein beschädigtes
+          Bild oder ein Inhalt, der nicht zum angegebenen Typ passt, ergibt eine Fehlerseite
+          „Bild kann nicht angezeigt werden“. Die Regel „nur Bilder vom selben Server“ ist
+          automatisch erfüllt, da die Adresse selbst aufgerufen wird.</li>
+      <li>SVG (<code>image/svg+xml</code>) und alle übrigen Typen (PDF, ZIP …) werden weiterhin
+          abgelehnt.</li>
+      <li>Das Bild wird nur einmal heruntergeladen und im Hintergrund dekodiert; Lesezeichen,
+          Tabs, Zurück/Vor und Neu laden funktionieren wie bei jeder anderen Seite.</li>
+    </ul>
+  </li>
+  <li><b>Intern:</b> <code>Tab._build_page</code> erkennt Bildtypen (Liste
+      <code>images.CONTENT_TYPES</code>) und baut mit <code>pages.image_page</code> eine kleine
+      HTML-Seite. Das fertig dekodierte PNG hängt in dem neuen Feld <code>Page.preloaded</code>
+      (Bildadresse → PNG) an der Seite und wird beim Anzeigen direkt eingesetzt statt erneut
+      geladen. Neue Funktion <code>images.probe</code> liefert Format und Originalgröße ohne zu
+      dekodieren. Neue Tests in <code>tests/test_net_images.py</code>.</li>
+</ul>
+
+<h2 id="v0.6.0">0.6.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Tabs.</b> Im selben Fenster lassen sich mehrere Seiten öffnen. Die Tab-Leiste liegt
+      zwischen Adresszeile und Seite und zeigt den (gekürzten) Seitentitel, während des Ladens
+      „Lädt …“.
+    <ul>
+      <li>Jeder Tab hat seinen eigenen Verlauf für Zurück und Vor, seine eigene Statusmeldung
+          und lädt unabhängig von den anderen im Hintergrund weiter, auch wenn er gerade nicht
+          sichtbar ist. Adresszeile, Stern ☆/★, Zurück-/Vor-Knöpfe und Fenstertitel folgen
+          immer dem sichtbaren Tab.</li>
+      <li><b>Neuer Tab</b> mit Strg+T, dem Knopf <b>+</b> rechts in der Werkzeugleiste oder einem
+          Doppelklick auf die freie Fläche der Tab-Leiste. Er zeigt die Startseite, die
+          Adresszeile ist gleich ausgewählt.</li>
+      <li><b>Links in neuem Tab:</b> Mittelklick oder Strg+Klick auf einen Link öffnet ihn im
+          Hintergrund direkt rechts neben dem aktuellen Tab. Mehrere so geöffnete Links stehen
+          in der Reihenfolge, in der sie geöffnet wurden. Die Statuszeile bestätigt das Öffnen.</li>
+      <li><b>Tab schließen</b> mit Strg+W, Mittelklick auf den Tab oder über das Tab-Menü. Wird
+          der letzte Tab geschlossen, erscheint stattdessen ein neuer Tab mit der Startseite –
+          das Fenster schließt sich also nicht versehentlich.</li>
+      <li><b>Geschlossene Tabs wieder öffnen</b> mit Strg+Umschalt+T: Die letzten 20 geschlossenen
+          Tabs werden samt Verlauf an ihrer alten Stelle wiederhergestellt, die Seite wird neu
+          geladen. Diese Liste gilt nur bis zum Beenden; nach einem Neustart werden keine
+          Tabs wiederhergestellt.</li>
+      <li><b>Wechseln</b> mit Strg+Tab bzw. Strg+Bild↓ (nächster) und Strg+Umschalt+Tab bzw.
+          Strg+Bild↑ (vorheriger), Strg+1 bis Strg+8 springen zum entsprechenden Tab, Strg+9 zum
+          letzten. Lag der Tastaturfokus in der Seite, wandert er in die Seite des neuen Tabs.</li>
+      <li><b>Rechtsklick auf einen Tab</b> öffnet ein Menü: Neu laden, Tab schließen, Andere Tabs
+          schließen, Neuer Tab, Geschlossenen Tab wieder öffnen.</li>
+      <li>Keine Popups: Seiten können keine Tabs öffnen. <code>target="_blank"</code> wird
+          weiterhin ignoriert; neue Tabs entstehen nur auf ausdrücklichen Wunsch.</li>
+      <li>Die neuen Tastenkürzel stehen in der Tabelle auf der Startseite und im README.</li>
+    </ul>
+  </li>
+  <li><b>Behoben:</b> Beim Beenden lief ein letzter Abfrage-Zeitgeber ins Leere und konnte die
+      Meldung „invalid command name … _poll“ ausgeben; er wird jetzt abgebrochen.</li>
+  <li><b>Intern:</b> Der Zustand einer Seite (Ansicht, Verlauf, Ladegeneration, Statustext) liegt
+      jetzt in der neuen Klasse <code>Tab</code> in <code>app.py</code>; <code>App</code> verwaltet
+      Werkzeugleiste, Tab-Leiste (<code>ttk.Notebook</code>), Lesezeichen und Einstellungen.
+      Ergebnisse aus Hintergrund-Threads tragen den Tab mit, Ergebnisse geschlossener Tabs
+      werden verworfen. Hintergrund-Tabs berechnen Tabellen- und Bildbreiten aus der sichtbaren
+      Ansicht, da sie selbst noch nicht ausgemessen sind. <code>PageView</code> meldet
+      Mittel- und Strg+Klicks auf Links über den neuen Rückruf <code>on_link_new_tab</code>.
+      Neue Tests in <code>tests/test_tabs.py</code> (echtes Fenster, nur eingebaute Seiten).</li>
+</ul>
+
 <h2 id="v0.5.0">0.5.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Programmsymbol.</b> Der Anzeiger hat ein eigenes Symbol, eine stilisierte Zeitung

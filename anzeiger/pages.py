@@ -1,4 +1,5 @@
-"""Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Lesezeichen, Fehlerseite."""
+"""Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Lesezeichen,
+Fehlerseite und die Seite für direkt aufgerufene Bilder."""
 
 from __future__ import annotations
 
@@ -7,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from . import __version__
 from . import bookmarks as bm
@@ -50,6 +52,12 @@ START_PAGE = f"""<title>Anzeiger</title>
   <tr><td>Alt+Pos1</td><td>Startseite</td></tr>
   <tr><td>Strg+D</td><td>Lesezeichen für die aktuelle Seite setzen oder entfernen</td></tr>
   <tr><td>Strg+Umschalt+O</td><td>Lesezeichen verwalten</td></tr>
+  <tr><td>Strg+T / +</td><td>Neuer Tab</td></tr>
+  <tr><td>Strg+W, Mittelklick auf den Tab</td><td>Tab schließen</td></tr>
+  <tr><td>Strg+Umschalt+T</td><td>Geschlossenen Tab wieder öffnen</td></tr>
+  <tr><td>Strg+Tab / Strg+Umschalt+Tab</td><td>Nächster / vorheriger Tab (auch Strg+Bild↓ / Strg+Bild↑)</td></tr>
+  <tr><td>Strg+1 … Strg+8, Strg+9</td><td>Tab Nummer 1 bis 8, letzter Tab</td></tr>
+  <tr><td>Mittelklick oder Strg+Klick auf einen Link</td><td>Link in neuem Tab im Hintergrund öffnen</td></tr>
   <tr><td>Enter in einem Textfeld</td><td>Formular abschicken</td></tr>
   <tr><td>F5</td><td>Neu laden</td></tr>
   <tr><td>Esc</td><td>Laden abbrechen</td></tr>
@@ -187,6 +195,17 @@ def internal_url(url: str) -> str:
 def internal_page(url: str, ctx: PageContext | None = None) -> str:
     """HTML-Quelltext einer eingebauten Seite; KeyError bei unbekannter Adresse."""
     return INTERNAL_PAGES[internal_url(url)](ctx)
+
+
+def image_page(url: str, image_format: str, size: tuple[int, int], shown: tuple[int, int]) -> str:
+    """Seite für eine direkt aufgerufene Bildadresse: Bild, darunter Format und Größe."""
+    name = unquote(urlsplit(url).path.rsplit("/", 1)[-1]) or urlsplit(url).hostname or url
+    info = f"{image_format}, {size[0]}×{size[1]} Pixel"
+    if shown != size:
+        info += f" – verkleinert auf {shown[0]}×{shown[1]}"
+    return (f"<title>{html.escape(name)} ({size[0]}×{size[1]})</title>"
+            f'<p><img src="{html.escape(url)}" alt="{html.escape(name)}"></p>'
+            f"<p><small>{html.escape(info)}</small></p>")
 
 
 def error_page(url: str, message: str) -> str:

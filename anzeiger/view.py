@@ -37,9 +37,11 @@ class _Field:
 
 class PageView(ttk.Frame):
     def __init__(self, master: tk.Misc, on_link: Callable[[str], None],
-                 on_hover: Callable[[str | None], None], on_submit: SubmitCallback) -> None:
+                 on_hover: Callable[[str | None], None], on_submit: SubmitCallback,
+                 on_link_new_tab: Callable[[str], None] | None = None) -> None:
         super().__init__(master)
         self.on_link = on_link
+        self.on_link_new_tab = on_link_new_tab
         self.on_hover = on_hover
         self.on_submit = on_submit
 
@@ -97,6 +99,10 @@ class PageView(ttk.Frame):
         self.text.bind("<Leave>", lambda _e: self._set_hover(None))
         self.text.bind("<Button-1>", self._on_press)
         self.text.bind("<ButtonRelease-1>", self._on_release)
+        # Mittelklick: Link im neuen Tab (und nicht das Einfügen/Ziehen des Text-Widgets)
+        self.text.bind("<Button-2>", self._on_middle_press)
+        self.text.bind("<B2-Motion>", lambda _e: "break" if self._pressed else None)
+        self.text.bind("<ButtonRelease-2>", self._on_middle_release)
         self.text.bind("<Configure>", self._on_resize)
         # Nur-Lesen, aber Markieren und Kopieren bleiben möglich.
         self.text.bind("<Key>", self._on_key)
@@ -567,9 +573,25 @@ class PageView(ttk.Frame):
         if url and url == self._pressed and not self.text.tag_ranges("sel"):
             if url.startswith("toggle:"):
                 self.toggle_fold(url)
+            elif event.state & 0x0004 and self.on_link_new_tab:   # Strg+Klick
+                self.on_link_new_tab(url)
             else:
                 self.on_link(url)
         self._pressed = None
+
+    def _on_middle_press(self, event: tk.Event) -> str | None:
+        url, _ = self._target(event)
+        self._pressed = url if url and not url.startswith("toggle:") else None
+        return "break" if self._pressed else None
+
+    def _on_middle_release(self, event: tk.Event) -> str | None:
+        pressed, self._pressed = self._pressed, None
+        if not pressed:
+            return None
+        url, _ = self._target(event)
+        if url == pressed and self.on_link_new_tab:
+            self.on_link_new_tab(url)
+        return "break"
 
     def _on_resize(self, _event: tk.Event) -> None:
         width = self.content_width()

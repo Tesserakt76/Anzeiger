@@ -15,9 +15,14 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Bilder (`img`) werden nur geladen, wenn sie auf **demselben Server** liegen (gleiche
   Domain, Subdomains zählen mit, z.B. `www.a.de` und `cdn.a.de`) und PNG, JPEG, GIF, BMP oder WebP sind.
   Sonst erscheint ein Platzhalter `[Bild: alt-Text]` mit Begründung beim Überfahren.
+- Direkt aufgerufene Bildadressen (z.B. ein Link auf `foto.jpg`) werden als eigene Seite
+  angezeigt, auf Fensterbreite verkleinert, darunter Format und Originalgröße.
 - Ganze Listen lassen sich über die Zeile „▾ Liste (n Einträge)“ einklappen.
 - Formulare (Text, Passwort, Ankreuz-/Optionsfelder, Auswahllisten, Textbereiche) lassen sich
   ausfüllen und per GET oder POST abschicken. Kein Datei-Upload.
+- Tabs: mehrere Seiten in einem Fenster, jede mit eigenem Verlauf. Links öffnen per
+  Mittelklick oder Strg+Klick im Hintergrund; geschlossene Tabs lassen sich mit
+  Strg+Umschalt+T wieder öffnen. Rechtsklick auf einen Tab öffnet ein Menü.
 - Lesezeichen: Stern ☆ bzw. Strg+D, Menü „Lesezeichen“, Verwaltung auf `about:bookmarks`.
   Gespeichert in `~/.config/anzeiger/bookmarks.html` im Netscape-Bookmark-Format, das Chrome
   und Firefox importieren und exportieren.
@@ -73,6 +78,12 @@ Einstellungen und Lesezeichen bleiben pro Benutzer in `~/.config/anzeiger/`.
 | Alt+Pos1 / ⌂          | Startseite            |
 | Strg+D / ☆            | Lesezeichen setzen/entfernen |
 | Strg+Umschalt+O       | Lesezeichen verwalten |
+| Strg+T / +            | Neuer Tab             |
+| Strg+W / Mittelklick auf Tab | Tab schließen  |
+| Strg+Umschalt+T       | Geschlossenen Tab wieder öffnen |
+| Strg+Tab / Strg+Umschalt+Tab | Nächster / vorheriger Tab |
+| Strg+1 … 8 / Strg+9   | Tab Nr. 1 … 8 / letzter Tab |
+| Mittel- oder Strg+Klick auf Link | Link in neuem Tab öffnen |
 | Enter in Textfeld     | Formular abschicken   |
 | F5                    | Neu laden             |
 | Esc                   | Laden abbrechen       |
