@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import math
 import queue
 import sys
 import tkinter as tk
@@ -13,11 +14,11 @@ from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from . import bookmarks, forms, images, net
+from . import bookmarks, forms, images, net, notes
 from .layout import FieldOp, ImageOp, Page, render_html, render_text
-from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, PageContext, error_page, image_page,
-                    internal_page, internal_url, is_internal)
-from .settings import Settings, default_path
+from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, NOTES_URL, PageContext, error_page,
+                    image_page, internal_page, internal_url, is_internal)
+from .settings import ZOOM_LEVELS, Settings, default_path, zoom_step
 
 if TYPE_CHECKING:
     from .view import PageView
@@ -36,7 +37,8 @@ class Tab:
 
         self.app = app
         self.view = PageView(app.notebook, on_link=self.follow_link, on_hover=app.on_hover,
-                             on_submit=self.submit_form, on_link_new_tab=app.open_in_new_tab)
+                             on_submit=self.submit_form, on_link_new_tab=app.open_in_new_tab,
+                             on_zoom=app.zoom_step, zoom=app.settings.zoom)
         app.bind_tab_keys(self.view.text)
         self.history: list[str] = []
         self.position = -1
@@ -125,6 +127,7 @@ class Tab:
 
     def close(self) -> None:
         """Bricht laufende Ladevorgänge ab und gibt die Anzeige frei."""
+        self.app.keep_notes(self)
         self.closed = True
         self.generation += 1
         self.view.destroy()
@@ -149,6 +152,8 @@ class Tab:
                 self.app.config_post(self, entries)
             elif is_internal(page.url) and method == "post" and target == BOOKMARKS_URL:
                 self.app.bookmarks_post(self, entries)
+            elif is_internal(page.url) and method == "post" and target == NOTES_URL:
+                self.app.notes_post(self, entries)
             else:
                 self.set_status("Formular abgelehnt: Ziel ist eine eingebaute Seite.")
             return
@@ -179,6 +184,7 @@ class Tab:
 
     def load(self, url: str, submission: forms.Submission | None = None,
              from_page: str | None = None) -> None:
+        self.app.keep_notes(self)   # vor dem Lesen der Datei, falls about:notes neu geladen wird
         self.generation += 1
         generation = self.generation
         self.loading = True
@@ -271,6 +277,7 @@ class Tab:
         self._load_images(page)
 
     def _show(self, page: Page) -> None:
+        self.app.keep_notes(self)
         self.page = page
         settings = self.app.settings
         self.view.show(page, lambda op: self._image_note(page.url, op),
@@ -322,6 +329,7 @@ class App:
         self.bookmarks_path = bookmarks.default_path()
         self.bookmarks_edit = False
         self._bookmarks_cache: tuple[float, bookmarks.Folder] | None = None
+        self.notes_path = notes.default_path()
         root.title("Anzeiger")
         root.geometry("1000x750")
         root.minsize(500, 300)
@@ -338,6 +346,12 @@ class App:
         go_button = ttk.Button(bar, text="Los", command=self.go)
         self.bookmark_menu = tk.Menu(root, tearoff=False, postcommand=self._fill_bookmark_menu)
         menu_button = ttk.Menubutton(bar, text="Lesezeichen", menu=self.bookmark_menu)
+        self.zoom_var = tk.IntVar(value=self.settings.zoom)
+        self.zoom_icon = _magnifier_icon(root)
+        self.zoom_menu = tk.Menu(root, tearoff=False)
+        self.zoom_button = ttk.Menubutton(bar, image=self.zoom_icon, compound="left", menu=self.zoom_menu,
+                                          text=f"{self.settings.zoom} %", width=5)
+        self._fill_zoom_menu()
         new_tab_button = ttk.Button(bar, text="+", width=3, command=self.new_tab_key)
         self.back_button.pack(side="left")
         self.forward_button.pack(side="left", padx=(2, 0))
@@ -347,6 +361,7 @@ class App:
         self.star_button.pack(side="left", padx=(2, 0))
         go_button.pack(side="left", padx=(6, 0))
         menu_button.pack(side="left", padx=(6, 0))
+        self.zoom_button.pack(side="left", padx=(6, 0))
         new_tab_button.pack(side="left", padx=(6, 0))
 
         self.status = tk.StringVar()
@@ -372,6 +387,11 @@ class App:
         root.bind("<Control-Shift-O>", lambda _e: self.tab.navigate(BOOKMARKS_URL))
         root.bind("<Control-Shift-o>", lambda _e: self.tab.navigate(BOOKMARKS_URL))
         root.bind("<Escape>", lambda _e: self.tab.stop())
+        for sequence, step in (("<Control-plus>", 1), ("<Control-equal>", 1), ("<Control-KP_Add>", 1),
+                               ("<Control-minus>", -1), ("<Control-KP_Subtract>", -1),
+                               ("<Control-Key-0>", 0), ("<Control-KP_0>", 0), ("<Control-KP_Insert>", 0)):
+            root.bind(sequence, lambda _e, step=step: self._zoom_key(step))
+        root.bind("<Control-s>", self._save_key)
         self.bind_tab_keys(root)
 
         self._tabs: dict[str, Tab] = {}
@@ -415,6 +435,7 @@ class App:
 
     def close(self) -> None:
         for tab in self._tabs.values():
+            self.keep_notes(tab)
             tab.generation += 1
         self.root.after_cancel(self._poll_job)
         self.pool.shutdown(wait=False, cancel_futures=True)
@@ -620,8 +641,15 @@ class App:
         tab.set_status(message)
 
     def render_internal(self, url: str, message: str = "") -> Page:
+        notes_text = ""
+        if internal_url(url) == NOTES_URL:
+            try:
+                notes_text = notes.load(self.notes_path)
+            except OSError as error:
+                message = message or f"Notizen nicht lesbar: {error}"
         ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message,
-                          self._bookmarks(), self.bookmarks_path, self.bookmarks_edit)
+                          self._bookmarks(), self.bookmarks_path, self.bookmarks_edit,
+                          notes_text, self.notes_path)
         return render_html(internal_page(url, ctx), internal_url(url), self.columns())
 
     # -- Lesezeichen ---------------------------------------------------------------
@@ -713,24 +741,45 @@ class App:
         data: dict[str, str] = dict(entries)
         action = data.get("action")
         where = bookmarks.parse_path(data.get("path", ""))
-        url = data.get("url", "")
+        key = data.get("key", "")
+        title = data.get("title", "")
+        dest = bookmarks.parse_folder(data.get("dest", ""))
+        gone = "Eintrag nicht gefunden – die Datei wurde inzwischen geändert."
         try:
             if action == "edit":
                 self.bookmarks_edit, message = True, ""
             elif action == "done":
                 self.bookmarks_edit, message = False, ""
+            elif action == "Ordner anlegen" and dest is not None:
+                if not title.strip():
+                    message = "Bitte einen Namen für den neuen Ordner eingeben."
+                elif bookmarks.add_folder(self.bookmarks_path, dest, title):
+                    message = f"Ordner „{' '.join(title.split())}“ angelegt."
+                else:
+                    message = "Der Zielordner wurde nicht gefunden."
             elif action == "Umbenennen" and where is not None:
-                if not data.get("title", "").strip():
+                if not title.strip():
                     message = "Der Name darf nicht leer sein."
-                elif bookmarks.rename_at(self.bookmarks_path, where, url, data["title"]):
-                    message = "Lesezeichen umbenannt."
+                elif bookmarks.rename_at(self.bookmarks_path, where, key, title):
+                    message = "Umbenannt."
                 else:
-                    message = "Lesezeichen nicht gefunden – die Datei wurde inzwischen geändert."
+                    message = gone
+            elif action == "Verschieben" and where is not None and dest is not None:
+                try:
+                    message = "Verschoben." if bookmarks.move_at(self.bookmarks_path, where, key, dest) else gone
+                except ValueError as error:
+                    message = str(error)
             elif action == "Entfernen" and where is not None:
-                if bookmarks.remove_at(self.bookmarks_path, where, url):
-                    message = "Lesezeichen entfernt."
+                node = self._bookmarks().node(where)
+                if (isinstance(node, bookmarks.Folder) and node.children and not messagebox.askyesno(
+                        "Ordner entfernen?",
+                        f"Der Ordner „{node.title}“ ist nicht leer ({node.count()} Lesezeichen). "
+                        "Ihn samt Inhalt entfernen?", icon="warning", parent=self.root)):
+                    message = "Nichts entfernt."
+                elif bookmarks.remove_at(self.bookmarks_path, where, key):
+                    message = "Entfernt."
                 else:
-                    message = "Lesezeichen nicht gefunden – die Datei wurde inzwischen geändert."
+                    message = gone
             else:
                 message = "Unbekannte Aktion."
         except OSError as error:
@@ -738,6 +787,87 @@ class App:
         tab.show_internal(BOOKMARKS_URL, message)
         if message:
             tab.set_status(message)
+
+    # -- Notizen -------------------------------------------------------------------
+
+    def _notes_field(self, tab: Tab) -> tuple[str, str] | None:
+        """(gespeicherter, aktueller) Text, wenn der Tab gerade about:notes zeigt."""
+        page = tab.page
+        if tab.closed or page is None or internal_url(page.url) != NOTES_URL:
+            return None
+        op = next((op for op in page.ops if isinstance(op, FieldOp) and op.name == "text"), None)
+        if op is None:
+            return None
+        current = dict(tab.view.form_entries(op.form, None)).get("text", op.value)
+        return op.value, current
+
+    def save_notes(self, text: str) -> str:
+        try:
+            notes.save(self.notes_path, text)
+            return "Notizen gespeichert."
+        except OSError as error:
+            return f"Notizen konnten nicht gespeichert werden: {error}"
+
+    def keep_notes(self, tab: Tab) -> None:
+        """Sichert geänderte Notizen, bevor die Seite verlassen oder der Tab geschlossen wird.
+
+        Unveränderte Notizen werden nicht geschrieben, damit ein zweiter Tab mit
+        about:notes nicht den neueren Stand aus einem anderen Tab überschreibt.
+        """
+        field = self._notes_field(tab)
+        if field is not None and field[0] != field[1]:
+            message = self.save_notes(field[1])
+            if not message.startswith("Notizen gespeichert"):
+                messagebox.showerror("Notizen", message, parent=self.root)
+
+    def notes_post(self, tab: Tab, entries: list[tuple[str, str]]) -> None:
+        text = dict(entries).get("text")
+        message = "Unbekannte Aktion." if text is None else self.save_notes(text)
+        tab.show_internal(NOTES_URL, message)
+        tab.set_status(message)
+
+    def _save_key(self, _event: tk.Event) -> str | None:
+        """Strg+S speichert die Notizen, wenn der sichtbare Tab about:notes zeigt."""
+        field = self._notes_field(self.tab)
+        if field is None:
+            return None
+        self.notes_post(self.tab, [("text", field[1])])
+        return "break"
+
+    # -- Lupe ----------------------------------------------------------------------
+
+    def _zoom_key(self, step: int) -> str:
+        self.zoom_step(step)
+        return "break"
+
+    def zoom_step(self, step: int) -> None:
+        """Eine Stufe größer (1) oder kleiner (-1); 0 stellt die Originalgröße her."""
+        self.set_zoom(100 if step == 0 else zoom_step(self.settings.zoom, step))
+
+    def set_zoom(self, zoom: int) -> None:
+        """Gilt für alle Tabs und bleibt nach einem Neustart erhalten."""
+        self.zoom_var.set(zoom)
+        self.zoom_button.configure(text=f"{zoom} %")
+        if zoom == self.settings.zoom:
+            return
+        self.settings.zoom = zoom
+        for tab in self._tabs.values():
+            tab.view.set_zoom(zoom)
+        self._set_status(f"Vergrößerung: {zoom} %")
+        try:
+            self.settings.save(self.settings_path)
+        except OSError:
+            pass   # gilt dann nur bis zum Beenden
+
+    def _fill_zoom_menu(self) -> None:
+        menu = self.zoom_menu
+        menu.add_command(label="Vergrößern", accelerator="Strg++", command=lambda: self.zoom_step(1))
+        menu.add_command(label="Verkleinern", accelerator="Strg+−", command=lambda: self.zoom_step(-1))
+        menu.add_command(label="Originalgröße", accelerator="Strg+0", command=lambda: self.zoom_step(0))
+        menu.add_separator()
+        for level in ZOOM_LEVELS:
+            menu.add_radiobutton(label=f"{level} %", value=level, variable=self.zoom_var,
+                                 command=lambda level=level: self.set_zoom(level))
 
     # -- Ergebnisse aus dem Hintergrund und Anzeige ---------------------------------
 
@@ -776,6 +906,20 @@ class App:
 def _short(label: str, limit: int = 60) -> str:
     label = " ".join(label.split())
     return label if len(label) <= limit else label[:limit - 1] + "…"
+
+
+def _magnifier_icon(root: tk.Misc, size: int = 16) -> tk.PhotoImage:
+    """Kleine Lupe für den Zoom-Knopf: Ring mit Griff nach rechts unten."""
+    image = tk.PhotoImage(master=root, width=size, height=size)
+    center, radius = size * 0.4, size * 0.28
+    for y in range(size):
+        for x in range(size):
+            ring = abs(math.hypot(x + 0.5 - center, y + 0.5 - center) - radius) < size * 0.07
+            handle = (x >= center + radius * 0.6 and y >= center + radius * 0.6
+                      and abs(x - y) <= 1 and max(x, y) < size - 1)
+            if ring or handle:
+                image.put("#333333", (x, y))
+    return image
 
 
 def set_window_icon(root: tk.Tk) -> None:

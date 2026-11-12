@@ -145,6 +145,64 @@ class FileTest(unittest.TestCase):
         self.assertEqual(root.children[0].attrs["ICON_URI"], "https://www.mozilla.org/favicon.ico")
 
 
+class FolderTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "bookmarks.html"
+        self.path.write_text(FIREFOX, encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_folders_list(self):
+        self.assertEqual(bm.folders(bm.parse(FIREFOX)), [
+            ((), "Lesezeichen"),
+            ((2,), "Lesezeichen-Symbolleiste"),
+            ((2, 1), "Lesezeichen-Symbolleiste › Unterordner"),
+        ])
+        self.assertEqual(bm.parse_folder(""), ())
+        self.assertEqual(bm.parse_folder("2.1"), (2, 1))
+
+    def test_add_folder_and_nest(self):
+        self.assertTrue(bm.add_folder(self.path, (), "  Neu  "))
+        self.assertTrue(bm.add_folder(self.path, (3,), "Darin"))
+        self.assertFalse(bm.add_folder(self.path, (0,), "Lesezeichen ist kein Ordner"))
+        self.assertFalse(bm.add_folder(self.path, (), " "))
+        root = bm.load(self.path)
+        self.assertEqual(root.node((3,)).title, "Neu")
+        self.assertEqual(root.node((3, 0)).title, "Darin")
+        self.assertIn("ADD_DATE", root.node((3,)).attrs)
+
+    def test_move_bookmark_and_folder(self):
+        bm.add_folder(self.path, (), "Ziel")                       # (3,)
+        self.assertTrue(bm.move_at(self.path, (0,), "https://www.mozilla.org/", (2, 1)))
+        root = bm.load(self.path)
+        # Durch das Verschieben rückt alles eine Stelle nach vorn.
+        self.assertEqual(root.node((1, 1, 1)).url, "https://www.mozilla.org/")
+        self.assertEqual(root.node((1, 1, 1)).description, "Eine Beschreibung")
+        self.assertTrue(bm.move_at(self.path, (1, 1), "Unterordner", (2,)))
+        root = bm.load(self.path)
+        self.assertEqual(summary(root.node((2,))), [
+            ((0,), "H3", "Unterordner"),
+            ((0, 0), "A", "B", "https://b.de/"),
+            ((0, 1), "A", "Mozilla & Co", "https://www.mozilla.org/"),
+        ])
+
+    def test_move_rejects_bad_targets(self):
+        with self.assertRaises(ValueError):
+            bm.move_at(self.path, (2,), "Lesezeichen-Symbolleiste", (2, 1))
+        with self.assertRaises(ValueError):
+            bm.move_at(self.path, (2,), "Lesezeichen-Symbolleiste", (0,))   # kein Ordner
+        self.assertFalse(bm.move_at(self.path, (2,), "Anderer Name", ()))
+        self.assertEqual(bm.serialize(bm.load(self.path)), bm.serialize(bm.parse(FIREFOX)))
+
+    def test_rename_and_remove_folder(self):
+        self.assertTrue(bm.rename_at(self.path, (2, 1), "Unterordner", "Umbenannt"))
+        self.assertFalse(bm.remove_at(self.path, (2, 1), "Unterordner"))
+        self.assertTrue(bm.remove_at(self.path, (2, 1), "Umbenannt"))
+        self.assertEqual(bm.load(self.path).count(), 2)
+
+
 class PageTest(unittest.TestCase):
     def test_bookmarks_page(self):
         ctx = pages.PageContext(bookmarks=bm.parse(FIREFOX), bookmarks_path=Path("/x/bookmarks.html"))
@@ -158,8 +216,15 @@ class PageTest(unittest.TestCase):
     def test_edit_mode_has_form_per_bookmark(self):
         ctx = pages.PageContext(bookmarks=bm.parse(FIREFOX), bookmarks_edit=True)
         page = render_html(pages.internal_page(pages.BOOKMARKS_URL, ctx), pages.BOOKMARKS_URL)
-        self.assertEqual(len(page.forms), 1 + 3)
-        self.assertEqual(page.forms[1].id, "b0")
+        # Fertig, Neuer Ordner, dann je ein Formular für 3 Lesezeichen und 2 Ordner
+        self.assertEqual(len(page.forms), 2 + 5)
+        self.assertEqual(page.forms[1].id, "new-folder")
+        self.assertEqual(page.forms[2].id, "b0")
+        self.assertEqual([f.id for f in page.forms[2:]], ["b0", "b2", "b2.0", "b2.1", "b2.1.0"])
+        # Ordner 2 kann nicht in sich selbst oder seinen Unterordner 2.1 verschoben werden
+        moves = [op for op in page.ops if getattr(op, "kind", None) == "select" and op.form == 3]
+        self.assertEqual([o.value for o in moves[0].options], [""])
+        self.assertTrue(moves[0].options[0].selected)
 
     def test_empty_and_start_page(self):
         source = pages.internal_page(pages.BOOKMARKS_URL, pages.PageContext())

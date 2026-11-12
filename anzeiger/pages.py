@@ -1,5 +1,5 @@
 """Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Lesezeichen,
-Fehlerseite und die Seite für direkt aufgerufene Bilder."""
+Notizen, Fehlerseite und die Seite für direkt aufgerufene Bilder."""
 
 from __future__ import annotations
 
@@ -12,12 +12,14 @@ from urllib.parse import unquote, urlsplit
 
 from . import __version__
 from . import bookmarks as bm
+from . import notes as nt
 from .settings import Settings, default_path
 
 HOME_URL = "about:start"
 CHANGELOG_URL = "about:changelog"
 CONFIG_URL = "about:config"
 BOOKMARKS_URL = "about:bookmarks"
+NOTES_URL = "about:notes"
 
 
 @dataclass
@@ -30,6 +32,8 @@ class PageContext:
     bookmarks: bm.Folder = field(default_factory=lambda: bm.Folder("Lesezeichen"))
     bookmarks_path: Path = field(default_factory=bm.default_path)
     bookmarks_edit: bool = False
+    notes: str = ""
+    notes_path: Path = field(default_factory=nt.default_path)
 
 
 START_PAGE = f"""<title>Anzeiger</title>
@@ -42,7 +46,8 @@ START_PAGE = f"""<title>Anzeiger</title>
       und im Format PNG, JPEG, GIF, BMP oder WebP vorliegen.</li>
 </ul>
 <p><a href="{CHANGELOG_URL}">Änderungsprotokoll</a> – was sich in welcher Version geändert hat.<br>
-<a href="{BOOKMARKS_URL}">Lesezeichen</a> – gespeicherte Seiten, kompatibel zu Chrome und Firefox.<br>
+<a href="{BOOKMARKS_URL}">Lesezeichen</a> – gespeicherte Seiten in Ordnern, kompatibel zu Chrome und Firefox.<br>
+<a href="{NOTES_URL}">Notizen</a> – ein einfacher Notizblock, der dauerhaft gespeichert wird.<br>
 <a href="{CONFIG_URL}">Einstellungen</a> – Cookies, Listen ein- oder ausgeklappt.</p>
 <h2>Tastenkürzel</h2>
 <table border="1">
@@ -52,6 +57,9 @@ START_PAGE = f"""<title>Anzeiger</title>
   <tr><td>Alt+Pos1</td><td>Startseite</td></tr>
   <tr><td>Strg+D</td><td>Lesezeichen für die aktuelle Seite setzen oder entfernen</td></tr>
   <tr><td>Strg+Umschalt+O</td><td>Lesezeichen verwalten</td></tr>
+  <tr><td>Strg+Plus / Strg+Minus, Strg+Mausrad</td><td>Größer / kleiner darstellen (Lupe)</td></tr>
+  <tr><td>Strg+0</td><td>Originalgröße (100 %)</td></tr>
+  <tr><td>Strg+S</td><td>Notizen speichern (auf <code>about:notes</code>)</td></tr>
   <tr><td>Strg+T / +</td><td>Neuer Tab</td></tr>
   <tr><td>Strg+W, Mittelklick auf den Tab</td><td>Tab schließen</td></tr>
   <tr><td>Strg+Umschalt+T</td><td>Geschlossenen Tab wieder öffnen</td></tr>
@@ -115,32 +123,50 @@ eine Liste jederzeit auf oder zu.</p>
 """
 
 
-def _bookmark_items(folder: bm.Folder, path: tuple[int, ...], edit: bool, forms: list[str]) -> str:
+def _folder_select(choices: list[tuple[tuple[int, ...], str]], form: str, selected: tuple[int, ...],
+                   skip: tuple[int, ...] | None = None) -> str:
+    """Auswahlliste der Ordner; `skip` lässt einen Ordner samt Unterordnern weg."""
+    options = []
+    for where, name in choices:
+        if skip is not None and where[:len(skip)] == skip:
+            continue
+        mark = " selected" if where == selected else ""
+        options.append(f'<option value="{bm.format_path(where)}"{mark}>{html.escape(name)}</option>')
+    return f'<select name="dest" form="{form}">{"".join(options)}</select>'
+
+
+def _edit_fields(node: bm.Bookmark | bm.Folder, where: tuple[int, ...],
+                 choices: list[tuple[tuple[int, ...], str]], forms: list[str]) -> str:
+    """Felder zum Umbenennen, Verschieben und Entfernen; das Formular steht am Seitenende."""
+    form = f"b{bm.format_path(where)}"
+    forms.append(f'<form id="{form}" method="post" action="{BOOKMARKS_URL}">'
+                 f'<input type="hidden" name="path" value="{bm.format_path(where)}">'
+                 f'<input type="hidden" name="key" value="{html.escape(bm.identity(node), quote=True)}"></form>')
+    skip = where if isinstance(node, bm.Folder) else None
+    return (f'<br><input type="text" name="title" size="40" form="{form}" '
+            f'value="{html.escape(node.title, quote=True)}"> '
+            f'<input type="submit" name="action" value="Umbenennen" form="{form}"> '
+            f'<input type="submit" name="action" value="Entfernen" form="{form}"><br>'
+            f'{_folder_select(choices, form, where[:-1], skip)} '
+            f'<input type="submit" name="action" value="Verschieben" form="{form}">')
+
+
+def _bookmark_items(folder: bm.Folder, path: tuple[int, ...], edit: bool, forms: list[str],
+                    choices: list[tuple[tuple[int, ...], str]]) -> str:
     items = []
     for i, child in enumerate(folder.children):
         where = path + (i,)
         if isinstance(child, bm.Folder):
-            inner = _bookmark_items(child, where, edit, forms)
+            fields = _edit_fields(child, where, choices, forms) if edit else ""
+            inner = _bookmark_items(child, where, edit, forms, choices)
             title = html.escape(child.title or "(Ordner ohne Namen)")
             body = f"<ul>{inner}</ul>" if inner else " <small>(leer)</small>"
-            items.append(f"<li><b>{title}</b>{body}</li>")
+            items.append(f"<li><b>{title}</b>{fields}{body}</li>")
         elif isinstance(child, bm.Bookmark):
             title = html.escape(child.title or child.url)
-            url = html.escape(child.url, quote=True)
-            link = f'<a href="{url}">{title}</a>'
-            if not edit:
-                items.append(f"<li>{link}</li>")
-                continue
-            # Die Felder stehen in der Liste, das zugehörige Formular am Seitenende.
-            form = f"b{bm.format_path(where)}"
-            forms.append(f'<form id="{form}" method="post" action="{BOOKMARKS_URL}">'
-                         f'<input type="hidden" name="path" value="{bm.format_path(where)}">'
-                         f'<input type="hidden" name="url" value="{url}"></form>')
-            items.append(
-                f'<li>{link}<br><input type="text" name="title" size="40" form="{form}" '
-                f'value="{html.escape(child.title, quote=True)}"> '
-                f'<input type="submit" name="action" value="Umbenennen" form="{form}"> '
-                f'<input type="submit" name="action" value="Entfernen" form="{form}"></li>')
+            link = f'<a href="{html.escape(child.url, quote=True)}">{title}</a>'
+            fields = _edit_fields(child, where, choices, forms) if edit else ""
+            items.append(f"<li>{link}{fields}</li>")
     return "".join(items)
 
 
@@ -148,20 +174,34 @@ def bookmarks_page(ctx: PageContext | None = None) -> str:
     ctx = ctx or PageContext()
     message = f"<p><b>{html.escape(ctx.message)}</b></p>" if ctx.message else ""
     forms: list[str] = []
-    items = _bookmark_items(ctx.bookmarks, (), ctx.bookmarks_edit, forms)
+    choices = bm.folders(ctx.bookmarks)
+    items = _bookmark_items(ctx.bookmarks, (), ctx.bookmarks_edit, forms, choices)
     count = ctx.bookmarks.count()
     if items:
-        listing = f"<p>{count} Lesezeichen.</p><ul>{items}</ul>"
+        folder_count = len(choices) - 1
+        in_folders = f" in {folder_count} Ordner{'n' if folder_count != 1 else ''}" if folder_count else ""
+        listing = f"<p>{count} Lesezeichen{in_folders}.</p><ul>{items}</ul>"
     else:
         listing = ("<p>Noch keine Lesezeichen. Mit dem Stern ☆ neben der Adresszeile oder "
                    "<b>Strg+D</b> wird die aktuelle Seite gespeichert.</p>")
     action, label = ("done", "Fertig") if ctx.bookmarks_edit else ("edit", "Bearbeiten")
     toggle = (f'<form method="post" action="{BOOKMARKS_URL}"><input type="hidden" name="action" '
-              f'value="{action}"><input type="submit" value="{label}"></form>') if items else ""
+              f'value="{action}"><input type="submit" value="{label}"></form>')
+    new_folder = ""
+    if ctx.bookmarks_edit:
+        new_folder = (f'<h2>Neuer Ordner</h2>'
+                      f'<form id="new-folder" method="post" action="{BOOKMARKS_URL}">'
+                      f'<p>Name: <input type="text" name="title" size="30"> in '
+                      f'{_folder_select(choices, "new-folder", ())} '
+                      f'<input type="submit" name="action" value="Ordner anlegen"></p></form>'
+                      f'<p><small>Mit „Verschieben“ wandert ein Lesezeichen oder Ordner samt Inhalt '
+                      f'ans Ende des gewählten Ordners. „Entfernen“ bei einem Ordner löscht auch alles, '
+                      f'was darin liegt.</small></p><h2>Alle Lesezeichen</h2>')
     return f"""<title>Lesezeichen</title>
 <h1>Lesezeichen</h1>
 {message}
 {toggle}
+{new_folder}
 {listing}
 {"".join(forms)}
 <hr>
@@ -175,11 +215,33 @@ kopiert werden. Ordner, Beschreibungen und Symbole bleiben dabei erhalten.</p>
 """
 
 
+def notes_page(ctx: PageContext | None = None) -> str:
+    ctx = ctx or PageContext()
+    message = f"<p><b>{html.escape(ctx.message)}</b></p>" if ctx.message else ""
+    # Der Zeilenumbruch nach <textarea> wird beim Einlesen entfernt; so bleibt eine
+    # Leerzeile am Anfang der Notizen erhalten.
+    return f"""<title>Notizen</title>
+<h1>Notizen</h1>
+{message}
+<form method="post" action="{NOTES_URL}">
+<textarea name="text" cols="72" rows="20">
+{html.escape(ctx.notes, quote=False)}</textarea>
+<p><input type="submit" name="action" value="Speichern"> <input type="reset" value="Änderungen verwerfen"></p>
+</form>
+<p>Speichern mit dem Knopf oder <b>Strg+S</b>. Ungespeicherte Änderungen werden außerdem
+automatisch gesichert, sobald die Seite verlassen, der Tab geschlossen oder der Anzeiger
+beendet wird. „Änderungen verwerfen“ stellt den zuletzt gespeicherten Stand wieder her.</p>
+<p>Die Notizen liegen als reiner Text in <code>{html.escape(str(ctx.notes_path))}</code>.</p>
+<p><a href="{HOME_URL}">Zurück zur Startseite</a></p>
+"""
+
+
 INTERNAL_PAGES: dict[str, Callable[[PageContext | None], str]] = {
     HOME_URL: lambda _ctx: START_PAGE,
     CHANGELOG_URL: changelog_page,
     CONFIG_URL: config_page,
     BOOKMARKS_URL: bookmarks_page,
+    NOTES_URL: notes_page,
 }
 
 

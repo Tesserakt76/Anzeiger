@@ -242,21 +242,35 @@ def remove_url(path: Path, url: str) -> bool:
     return True
 
 
-def remove_at(path: Path, where: tuple[int, ...], url: str) -> bool:
-    """Entfernt das Lesezeichen an `where`, aber nur, wenn es noch `url` hat."""
+def identity(node: Bookmark | Folder | Separator | None) -> str:
+    """Woran ein Eintrag erkannt wird: Adresse eines Lesezeichens, Name eines Ordners."""
+    if isinstance(node, Bookmark):
+        return node.url
+    if isinstance(node, Folder):
+        return node.title
+    return ""
+
+
+def _at(root: Folder, where: tuple[int, ...], key: str) -> Bookmark | Folder | None:
+    """Der Eintrag an `where`, aber nur, wenn er noch `key` hat (die Datei kann sich geändert haben)."""
+    node = root.node(where) if where else None
+    return node if isinstance(node, (Bookmark, Folder)) and identity(node) == key else None
+
+
+def remove_at(path: Path, where: tuple[int, ...], key: str) -> bool:
+    """Entfernt das Lesezeichen oder den Ordner (samt Inhalt) an `where`."""
     root = load(path)
-    node = root.node(where)
-    if not isinstance(node, Bookmark) or node.url != url:
+    if _at(root, where, key) is None:
         return False
     root.remove(where)
     save(root, path)
     return True
 
 
-def rename_at(path: Path, where: tuple[int, ...], url: str, title: str) -> bool:
+def rename_at(path: Path, where: tuple[int, ...], key: str, title: str) -> bool:
     root = load(path)
-    node = root.node(where)
-    if not isinstance(node, Bookmark) or node.url != url or not title.strip():
+    node = _at(root, where, key)
+    if node is None or not title.strip():
         return False
     node.title = " ".join(title.split())
     node.attrs["LAST_MODIFIED"] = _now()
@@ -264,13 +278,63 @@ def rename_at(path: Path, where: tuple[int, ...], url: str, title: str) -> bool:
     return True
 
 
+def add_folder(path: Path, parent: tuple[int, ...], title: str) -> bool:
+    """Legt einen leeren Ordner am Ende des Ordners `parent` an (() = oberste Ebene)."""
+    root = load(path)
+    target = root.node(parent)
+    if not isinstance(target, Folder) or not title.strip():
+        return False
+    stamp = _now()
+    target.children.append(Folder(" ".join(title.split()), attrs={"ADD_DATE": stamp, "LAST_MODIFIED": stamp}))
+    save(root, path)
+    return True
+
+
+def move_at(path: Path, where: tuple[int, ...], key: str, dest: tuple[int, ...]) -> bool:
+    """Verschiebt den Eintrag an `where` ans Ende des Ordners `dest`.
+
+    False, wenn der Eintrag nicht mehr da ist; ValueError bei unmöglichem Ziel.
+    """
+    root = load(path)
+    node = _at(root, where, key)
+    if node is None:
+        return False
+    target = root.node(dest)
+    if not isinstance(target, Folder):
+        raise ValueError("Der Zielordner wurde nicht gefunden.")
+    if dest[:len(where)] == where:
+        raise ValueError("Ein Ordner kann nicht in sich selbst verschoben werden.")
+    root.remove(where)     # `target` ist ein Objekt, verschobene Indizes stören also nicht
+    target.children.append(node)
+    save(root, path)
+    return True
+
+
+def folders(root: Folder) -> list[tuple[tuple[int, ...], str]]:
+    """Alle Ordner mit Pfad und lesbarem Namen, die Wurzel zuerst (für Auswahllisten)."""
+    result = [((), root.title or "Lesezeichen")]
+    names: dict[tuple[int, ...], str] = {}
+    for where, node in root.walk():
+        if isinstance(node, Folder):
+            name = node.title or "(Ordner ohne Namen)"
+            names[where] = f"{names[where[:-1]]} › {name}" if where[:-1] in names else name
+            result.append((where, names[where]))
+    return result
+
+
 def format_path(where: tuple[int, ...]) -> str:
     return ".".join(map(str, where))
 
 
 def parse_path(text: str) -> tuple[int, ...] | None:
+    """"1.0" → (1, 0); "" und Ungültiges → None."""
     try:
         where = tuple(int(part) for part in text.split("."))
     except ValueError:
         return None
     return where if where and all(i >= 0 for i in where) else None
+
+
+def parse_folder(text: str) -> tuple[int, ...] | None:
+    """Wie parse_path, aber "" steht für die oberste Ebene ()."""
+    return () if text == "" else parse_path(text)

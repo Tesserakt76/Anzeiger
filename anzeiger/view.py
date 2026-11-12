@@ -8,7 +8,7 @@ import tkinter.font as tkfont
 from collections.abc import Callable
 from tkinter import ttk
 
-from .layout import (TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
+from .layout import (BASE_SIZE, TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
                      MarkerOp, Page, RuleOp, Style, TextOp)
 
 EXPANDED = "\u25be"   # ▾
@@ -38,10 +38,13 @@ class _Field:
 class PageView(ttk.Frame):
     def __init__(self, master: tk.Misc, on_link: Callable[[str], None],
                  on_hover: Callable[[str | None], None], on_submit: SubmitCallback,
-                 on_link_new_tab: Callable[[str], None] | None = None) -> None:
+                 on_link_new_tab: Callable[[str], None] | None = None,
+                 on_zoom: Callable[[int], None] | None = None, zoom: int = 100) -> None:
         super().__init__(master)
         self.on_link = on_link
         self.on_link_new_tab = on_link_new_tab
+        self.on_zoom = on_zoom
+        self.zoom = zoom   # Prozent
         self.on_hover = on_hover
         self.on_submit = on_submit
 
@@ -62,10 +65,11 @@ class PageView(ttk.Frame):
 
         self.family = tkfont.nametofont("TkDefaultFont").actual("family")
         self.mono_family = tkfont.nametofont("TkFixedFont").actual("family")
-        self.base_font = tkfont.Font(family=self.family, size=11)
+        self.base_font = tkfont.Font(family=self.family, size=self._scaled(BASE_SIZE))
         self.text.configure(font=self.base_font)
         self.indent_px = self.base_font.measure("0000")
         self._fonts: dict[tuple, tkfont.Font] = {}
+        self._hang_ids: dict[tuple, str] = {}   # (Stufe, Text, Schrift) → Tag für hängenden Einzug
         self._style_tags: dict[Style, tuple[str, ...]] = {}
         self._configured: set[str] = set()
         self._href_ids: dict[str, str] = {}
@@ -104,6 +108,10 @@ class PageView(ttk.Frame):
         self.text.bind("<B2-Motion>", lambda _e: "break" if self._pressed else None)
         self.text.bind("<ButtonRelease-2>", self._on_middle_release)
         self.text.bind("<Configure>", self._on_resize)
+        # Strg+Mausrad: Lupe (X11 meldet das Rad als Taste 4/5)
+        self.text.bind("<Control-Button-4>", lambda _e: self._zoom_wheel(1))
+        self.text.bind("<Control-Button-5>", lambda _e: self._zoom_wheel(-1))
+        self.text.bind("<Control-MouseWheel>", lambda e: self._zoom_wheel(1 if e.delta > 0 else -1))
         # Nur-Lesen, aber Markieren und Kopieren bleiben möglich.
         self.text.bind("<Key>", self._on_key)
         self.text.configure(state="disabled")
@@ -120,18 +128,60 @@ class PageView(ttk.Frame):
     def content_width(self) -> int:
         return max(200, self.text.winfo_width() - 2 * PAD_X - 24)
 
+    def _scaled(self, size: int) -> int:
+        return max(4, round(size * self.zoom / 100))
+
     def _font(self, style: Style) -> tkfont.Font:
         key = (style.size, style.bold, style.italic, style.mono)
         font = self._fonts.get(key)
         if font is None:
             font = tkfont.Font(
                 family=self.mono_family if style.mono else self.family,
-                size=style.size - (1 if style.mono else 0),
+                size=self._scaled(style.size - (1 if style.mono else 0)),
                 weight="bold" if style.bold else "normal",
                 slant="italic" if style.italic else "roman",
             )
             self._fonts[key] = font
         return font
+
+    def set_zoom(self, zoom: int) -> None:
+        """Vergrößert oder verkleinert Schrift, Einzüge und Formularfelder, ohne neu zu laden.
+
+        Bilder und die Spaltenbreite schon umbrochener Tabellen bleiben, wie sie sind.
+        """
+        if zoom == self.zoom:
+            return
+        self.zoom = zoom
+        self.base_font.configure(size=self._scaled(BASE_SIZE))
+        for (size, _bold, _italic, mono), font in self._fonts.items():
+            font.configure(size=self._scaled(size - (1 if mono else 0)))
+        self.indent_px = self.base_font.measure("0000")
+        for name in self._configured:
+            if name.startswith("ind:"):
+                px = int(name.split(":", 1)[1]) * self.indent_px
+                self.text.tag_configure(name, lmargin1=px, lmargin2=px)
+        for (level, label, font_name), tag in self._hang_ids.items():
+            self._configure_hang(tag, level, label, tkfont.nametofont(font_name))
+        self._on_resize(None)
+
+    def _zoom_wheel(self, step: int) -> str:
+        if self.on_zoom is not None:
+            self.on_zoom(step)
+        return "break"
+
+    def _hang_tag(self, level: int, label: str, font: tkfont.Font) -> str:
+        """Tag für eine Listenmarke, die links vor dem Text in den Einzug ragt."""
+        key = (level, label, font.name)
+        tag = self._hang_ids.get(key)
+        if tag is None:
+            tag = f"hang:{len(self._hang_ids)}"
+            self._hang_ids[key] = tag
+            self._configure_hang(tag, level, label, font)
+        return tag
+
+    def _configure_hang(self, tag: str, level: int, label: str, font: tkfont.Font) -> None:
+        hang = max(0, level * self.indent_px - font.measure(label))
+        self.text.tag_configure(tag, lmargin1=hang, lmargin2=level * self.indent_px)
 
     def _tag(self, name: str, **options) -> str:
         if name not in self._configured:
@@ -245,8 +295,7 @@ class PageView(ttk.Frame):
                 label = op.text + " "
                 symbol = COLLAPSED if collapse_sublists else EXPANDED
                 toggle = f"{symbol} " if op.fold is not None else ""
-                hang = max(0, level * self.indent_px - font.measure(toggle + label))
-                tag = self._tag(f"hang:{level}:{hang}", lmargin1=hang, lmargin2=level * self.indent_px)
+                tag = self._hang_tag(level, toggle + label, font)
                 if toggle:
                     batch.extend((toggle, (tag, f"toggle:{op.fold}", "dim") + self._tags(op.style)[:1]))
                 batch.extend((label, (tag,) + self._tags(op.style)[:1]))
@@ -593,7 +642,7 @@ class PageView(ttk.Frame):
             self.on_link_new_tab(url)
         return "break"
 
-    def _on_resize(self, _event: tk.Event) -> None:
+    def _on_resize(self, _event: tk.Event | None) -> None:
         width = self.content_width()
         for rule in self._rules:
             rule.configure(width=width - rule.indent * self.indent_px)  # type: ignore[attr-defined]

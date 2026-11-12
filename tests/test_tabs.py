@@ -4,7 +4,8 @@ import tkinter as tk
 import unittest
 from unittest import mock
 
-from anzeiger.pages import BOOKMARKS_URL, CONFIG_URL, HOME_URL
+from anzeiger import notes
+from anzeiger.pages import BOOKMARKS_URL, CONFIG_URL, HOME_URL, NOTES_URL
 
 
 class TabsTest(unittest.TestCase):
@@ -124,6 +125,56 @@ class TabsTest(unittest.TestCase):
         tab = self.app.new_tab(CONFIG_URL)
         self.update()
         self.assertEqual(self.app.notebook.tab(tab.view, "text"), tab.page.title)
+
+    def test_zoom_applies_to_all_tabs_and_is_saved(self):
+        other = self.app.new_tab(CONFIG_URL)
+        self.update()
+        size = other.view.base_font.cget("size")
+        self.app.zoom_step(1)
+        self.app.zoom_step(1)
+        self.assertEqual(self.app.settings.zoom, 120)
+        self.assertEqual(self.app.zoom_button.cget("text"), "120 %")
+        self.assertGreater(other.view.base_font.cget("size"), size)
+        self.assertEqual(self.app.tabs[0].view.zoom, 120)
+        self.assertIn('"zoom": 120', self.app.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(self.app.new_tab().view.zoom, 120)
+        self.app.zoom_step(0)
+        self.assertEqual(other.view.base_font.cget("size"), size)
+
+    def notes_box(self, tab):
+        return next(w for w in tab.view.text.window_names() if self.root.nametowidget(w).winfo_class() == "Text")
+
+    def type_notes(self, tab, text):
+        box = self.root.nametowidget(self.notes_box(tab))
+        box.delete("1.0", "end")
+        box.insert("1.0", text)
+
+    def test_notes_saved_with_key_and_when_leaving(self):
+        tab = self.app.tab
+        tab.navigate(NOTES_URL)
+        self.update()
+        self.type_notes(tab, "Einkaufen\nBrot")
+        self.app._save_key(None)
+        self.assertEqual(notes.load(self.app.notes_path), "Einkaufen\nBrot")
+        self.assertEqual(tab.status_text, "Notizen gespeichert.")
+        self.type_notes(tab, "Ungespeichert")
+        tab.navigate(CONFIG_URL)
+        self.assertEqual(notes.load(self.app.notes_path), "Ungespeichert")
+        tab.back()
+        self.update()
+        self.type_notes(tab, "Beim Schließen")
+        self.app.close_tab(tab)
+        self.assertEqual(notes.load(self.app.notes_path), "Beim Schließen")
+
+    def test_unchanged_notes_tab_does_not_overwrite(self):
+        old = self.app.tab
+        old.navigate(NOTES_URL)
+        new = self.app.new_tab(NOTES_URL)
+        self.update()
+        self.type_notes(new, "Neuer Stand")
+        self.app._save_key(None)
+        old.navigate(CONFIG_URL)
+        self.assertEqual(notes.load(self.app.notes_path), "Neuer Stand")
 
 
 if __name__ == "__main__":

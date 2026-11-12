@@ -10,6 +10,81 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.8.0">0.8.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Ordner für Lesezeichen.</b> Auf <code>about:bookmarks</code> lassen sich im
+      Bearbeiten-Modus („Bearbeiten“) jetzt Ordner anlegen und Lesezeichen und Ordner beliebig
+      tief ineinander ablegen.
+    <ul>
+      <li>„Neuer Ordner“: Name eingeben, übergeordneten Ordner auswählen (oder die oberste Ebene
+          „Lesezeichen“) und „Ordner anlegen“ drücken. Der neue Ordner erscheint am Ende des
+          gewählten Ordners.</li>
+      <li>Unter jedem Lesezeichen und jedem Ordner steht eine Auswahlliste mit allen Ordnern
+          (als Pfad, z.B. „Arbeit › Projekte“) und der Knopf „Verschieben“. Der Eintrag wandert
+          ans Ende des gewählten Ordners, ein Ordner samt seinem ganzen Inhalt. Ein Ordner kann
+          nicht in sich selbst oder einen seiner Unterordner verschoben werden; diese Ziele
+          stehen gar nicht erst in der Liste.</li>
+      <li>Ordner lassen sich wie Lesezeichen umbenennen und entfernen. Ist ein Ordner nicht leer,
+          fragt der Anzeiger vor dem Entfernen nach, denn dabei wird auch alles darin gelöscht.</li>
+      <li>Über der Liste steht jetzt, wie viele Ordner es gibt („12 Lesezeichen in 3 Ordnern“).
+          Der Knopf „Bearbeiten“ erscheint auch bei leerer Sammlung, damit sich schon vor dem
+          ersten Lesezeichen Ordner anlegen lassen.</li>
+      <li>Die Ordner werden wie bisher im Netscape-Format gespeichert und erscheinen beim
+          Import in Chrome und Firefox als echte Lesezeichen-Ordner; im Menü „Lesezeichen“
+          werden sie als Untermenüs angezeigt. Neue Lesezeichen per ☆ bzw. Strg+D landen
+          weiterhin auf der obersten Ebene und können anschließend verschoben werden.</li>
+      <li>Wurde die Datei zwischendurch von außen geändert, wird nichts am falschen Eintrag
+          geändert, sondern „Eintrag nicht gefunden“ gemeldet.</li>
+    </ul>
+  </li>
+  <li><b>Neu: Lupe zum Vergrößern und Verkleinern.</b> Rechts neben dem Menü „Lesezeichen“
+      sitzt ein Knopf mit Lupensymbol und der aktuellen Vergrößerung (z.B. „100 %“).
+    <ul>
+      <li>Sein Menü bietet „Vergrößern“, „Verkleinern“, „Originalgröße“ und die Stufen 50, 67,
+          80, 90, 100, 110, 120, 133, 150, 170, 200, 240 und 300 %.</li>
+      <li>Tastenkürzel: <b>Strg+Plus</b> (auch Strg+= und Plus auf dem Ziffernblock) vergrößert,
+          <b>Strg+Minus</b> verkleinert, <b>Strg+0</b> stellt 100 % wieder her.
+          <b>Strg+Mausrad</b> über der Seite vergrößert bzw. verkleinert ebenfalls.</li>
+      <li>Vergrößert werden Schrift, Überschriften, Einzüge von Listen und Zitaten sowie die
+          Formularfelder (Textfelder, Auswahllisten, Textbereiche). Die Seite wird dafür nicht neu
+          geladen: Eingaben in Formularen, die Scrollposition und schon geladene Bilder bleiben
+          erhalten. Bilder selbst behalten ihre Größe.</li>
+      <li>Die Vergrößerung gilt für alle Tabs, auch für neu geöffnete, und wird in
+          <code>settings.json</code> gespeichert, bleibt also nach einem Neustart erhalten.</li>
+      <li>Hinweis: Als Raster dargestellte Tabellen werden beim Laden passend zur Fensterbreite
+          umbrochen. Nach starkem Vergrößern können sie breiter als das Fenster sein – dann
+          hilft die waagerechte Bildlaufleiste oder „Neu laden“ (F5).</li>
+    </ul>
+  </li>
+  <li><b>Neu: Notizen auf <code>about:notes</code>.</b> Ein einfacher Notizblock im Browser,
+      auf der Startseite verlinkt.
+    <ul>
+      <li>Ein großes Textfeld für beliebigen Text, gespeichert mit dem Knopf „Speichern“ oder
+          <b>Strg+S</b>. „Änderungen verwerfen“ stellt den zuletzt gespeicherten Stand wieder
+          her.</li>
+      <li>Ungespeicherte Änderungen gehen nicht verloren: Sie werden automatisch gesichert,
+          sobald man die Seite verlässt (Link, Zurück, andere Adresse, Neu laden), den Tab
+          schließt oder den Anzeiger beendet.</li>
+      <li>Ist <code>about:notes</code> in mehreren Tabs offen, sichert ein Tab nur dann
+          automatisch, wenn darin tatsächlich etwas geändert wurde – ein unveränderter Tab
+          überschreibt also nicht den neueren Stand aus einem anderen Tab.</li>
+      <li>Die Notizen liegen als reine Textdatei (UTF-8) in
+          <code>~/.config/anzeiger/notes.txt</code> und werden beim nächsten Start wieder
+          geladen. Die Datei wird wie alle anderen sicher geschrieben (erst eine temporäre
+          Datei, dann umbenannt).</li>
+      <li>Webseiten können die Notizen weder lesen noch ändern: Formulare an eingebaute
+          Seiten werden nur von eingebauten Seiten angenommen.</li>
+    </ul>
+  </li>
+  <li><b>Geändert:</b> Die Startseite verlinkt die Notizen und nennt die neuen Tastenkürzel
+      Strg+Plus, Strg+Minus, Strg+0 und Strg+S.</li>
+  <li><b>Intern:</b> Neues Modul <code>notes.py</code>; <code>bookmarks.py</code> kann Ordner
+      anlegen und Einträge verschieben (<code>add_folder</code>, <code>move_at</code>,
+      <code>folders</code>); <code>remove_at</code>/<code>rename_at</code> arbeiten jetzt auch
+      mit Ordnern. Die Seitenansicht kann ihre Schriften live skalieren
+      (<code>PageView.set_zoom</code>). Neue Tests für Ordner, Lupe und Notizen.</li>
+</ul>
+
 <h2 id="v0.7.0">0.7.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Bildadressen direkt anzeigen.</b> Bisher führte das Aufrufen einer Bildadresse –

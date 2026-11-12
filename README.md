@@ -23,12 +23,18 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Tabs: mehrere Seiten in einem Fenster, jede mit eigenem Verlauf. Links öffnen per
   Mittelklick oder Strg+Klick im Hintergrund; geschlossene Tabs lassen sich mit
   Strg+Umschalt+T wieder öffnen. Rechtsklick auf einen Tab öffnet ein Menü.
-- Lesezeichen: Stern ☆ bzw. Strg+D, Menü „Lesezeichen“, Verwaltung auf `about:bookmarks`.
+- Lesezeichen: Stern ☆ bzw. Strg+D, Menü „Lesezeichen“, Verwaltung auf `about:bookmarks`
+  mit beliebig verschachtelten Ordnern (anlegen, umbenennen, verschieben, entfernen).
   Gespeichert in `~/.config/anzeiger/bookmarks.html` im Netscape-Bookmark-Format, das Chrome
   und Firefox importieren und exportieren.
+- Lupe: Schrift, Einzüge und Formularfelder vergrößern und verkleinern (50–300 %) über den
+  Knopf mit der Lupe, Strg+Plus/Strg+Minus/Strg+0 oder Strg+Mausrad. Die Stufe gilt für alle
+  Tabs und bleibt nach einem Neustart erhalten.
+- Notizen auf `about:notes`: ein einfacher Notizblock, gespeichert mit Knopf oder Strg+S und
+  automatisch beim Verlassen der Seite, in `~/.config/anzeiger/notes.txt`.
 - Cookies nur im Arbeitsspeicher, keine Drittanbieter-Cookies; abschalt- und löschbar.
 - Eingebaute Seiten: Startseite `about:start` (Knopf ⌂), Änderungsprotokoll
-  `about:changelog`, Lesezeichen `about:bookmarks` und Einstellungen `about:config`,
+  `about:changelog`, Lesezeichen `about:bookmarks`, Notizen `about:notes` und Einstellungen `about:config`,
   auf der Startseite verlinkt.
   Die Einstellungen liegen in `~/.config/anzeiger/settings.json`.
 
@@ -63,7 +69,7 @@ Danach steht „Anzeiger“ mit Zeitungssymbol im Anwendungsmenü, und jeder Ben
 `/usr/local/bin/anzeiger` (Startbefehl), `/usr/local/share/applications/` (Menüeintrag) und
 `/usr/local/share/icons/hicolor/` (Symbole); die Orte lassen sich mit `APPDIR=…` und
 `PREFIX=…` ändern. Erneutes Ausführen aktualisiert, `sudo ./uninstall.sh` entfernt alles.
-Einstellungen und Lesezeichen bleiben pro Benutzer in `~/.config/anzeiger/`.
+Einstellungen, Lesezeichen und Notizen bleiben pro Benutzer in `~/.config/anzeiger/`.
 
 `sudo pip install .` ist unter aktuellen Debian/Ubuntu-Versionen absichtlich gesperrt
 (PEP 668); `install.sh` braucht weder pip noch Internet.
@@ -78,6 +84,9 @@ Einstellungen und Lesezeichen bleiben pro Benutzer in `~/.config/anzeiger/`.
 | Alt+Pos1 / ⌂          | Startseite            |
 | Strg+D / ☆            | Lesezeichen setzen/entfernen |
 | Strg+Umschalt+O       | Lesezeichen verwalten |
+| Strg+Plus / Strg+Minus / Strg+Mausrad | Größer / kleiner darstellen (Lupe) |
+| Strg+0                | Originalgröße (100 %) |
+| Strg+S                | Notizen speichern (auf `about:notes`) |
 | Strg+T / +            | Neuer Tab             |
 | Strg+W / Mittelklick auf Tab | Tab schließen  |
 | Strg+Umschalt+T       | Geschlossenen Tab wieder öffnen |
@@ -101,10 +110,11 @@ python3 -m unittest discover -s tests
 | `anzeiger/net.py`     | HTTP-GET/POST, nur http/https, Cookies, Größenlimits, Zeichensatz |
 | `anzeiger/dom.py`     | fehlertoleranter HTML-Baum auf Basis von `html.parser`     |
 | `anzeiger/layout.py`  | Baum → Darstellungsanweisungen (Listen, Tabellen …), ohne Tk |
-| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Lesezeichen, Einstellungen, Fehler) |
+| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Lesezeichen, Notizen, Einstellungen, Fehler) |
 | `anzeiger/forms.py`   | Formulardaten kodieren, GET-/POST-Anfrage bestimmen        |
 | `anzeiger/bookmarks.py`| Lesezeichen-Datei im Netscape-Format (Chrome/Firefox)    |
-| `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`        |
+| `anzeiger/notes.py`   | Notizen in `~/.config/anzeiger/notes.txt`                  |
+| `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`, Zoomstufen |
 | `anzeiger/changelog.html` | Änderungsprotokoll                                     |
 | `anzeiger/icons/`     | Programmsymbol (SVG, PNG 16–256 px)                        |
 | `install.sh`, `uninstall.sh`, `data/anzeiger.desktop` | systemweite Installation, Menüeintrag |
