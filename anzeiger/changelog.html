@@ -10,6 +10,76 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.3.0">0.3.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Formulare lassen sich ausfüllen und abschicken.</b> Formularfelder erscheinen als
+      echte Eingabeelemente:
+    <ul>
+      <li>Textfelder (auch Suche, E-Mail, Zahl, Datum …), Passwortfelder mit verdeckter Eingabe,
+          Ankreuzfelder, Optionsfelder (Radio-Buttons), Auswahllisten (einfach und mehrfach),
+          mehrzeilige Textbereiche sowie Absende- und Zurücksetzen-Knöpfe.</li>
+      <li>Abgeschickt wird per GET (Daten hängen an der Adresse) oder POST, in den Kodierungen
+          <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code> und
+          <code>text/plain</code>, immer als UTF-8. <code>formaction</code>, <code>formmethod</code>
+          und <code>formenctype</code> an Absendeknöpfen sowie das Attribut <code>form="…"</code>
+          an Feldern außerhalb ihres Formulars werden beachtet.</li>
+      <li>Enter in einem Textfeld schickt das Formular mit dessen erstem Absendeknopf ab.</li>
+      <li>Gesperrte Felder (<code>disabled</code>) und Felder ohne Namen werden nicht mitgeschickt.
+          Platzhaltertexte werden grau angezeigt, aber nie mitgeschickt.</li>
+      <li>Ein Formular einer HTTPS-Seite, das seine Daten unverschlüsselt über HTTP senden
+          würde, wird erst nach einer Rückfrage abgeschickt.</li>
+      <li>Bei POST wird wie in Browsern ein <code>Origin</code>-Kopf mit der Herkunft der
+          absendenden Seite mitgeschickt; viele Anmeldeseiten prüfen ihn zum Schutz vor
+          gefälschten Anfragen.</li>
+      <li>Im Verlauf wird nach einem POST nur die Adresse der Ergebnisseite gespeichert.
+          „Zurück“, „Vor“ und „Neu laden“ rufen sie per GET ab; Formulardaten werden also nie
+          versehentlich ein zweites Mal gesendet.</li>
+      <li>Nicht unterstützt: Hochladen von Dateien (das Feld wird angezeigt, ist aber gesperrt,
+          und es wird ein leerer Wert gesendet) sowie Knöpfe vom Typ <code>button</code>, die
+          nur mit JavaScript etwas tun.</li>
+      <li>Tabellen, die Formularfelder enthalten, werden zeilenweise statt als Raster
+          dargestellt, weil sich Eingabefelder nicht in das Zeichenraster setzen lassen.</li>
+    </ul>
+  </li>
+  <li><b>Neu: Cookies.</b> Cookies werden angenommen und an die Seite zurückgeschickt, die
+      sie gesetzt hat. Damit funktionieren Anmeldungen, Sitzungen (z.B. Warenkörbe) und Seiten,
+      die mit Weiterleitungen prüfen, ob Cookies ankommen.
+    <ul>
+      <li>Cookies liegen nur im Arbeitsspeicher und sind beim Beenden des Anzeigers weg.</li>
+      <li>Cookies von Drittanbietern werden nie angenommen oder mitgeschickt: Lädt eine Seite
+          etwas nach (Bilder), gelten Cookies nur, wenn es zur selben Domain gehört wie die
+          Seite. Das gilt auch nach Weiterleitungen.</li>
+      <li>Cookies lassen sich auf <code>about:config</code> ausschalten (Standard: an) und
+          jederzeit mit dem Knopf „Alle Cookies löschen“ entfernen. Beim Ausschalten werden alle
+          gespeicherten Cookies sofort gelöscht.</li>
+    </ul>
+  </li>
+  <li><b>Neu: Ganze Listen ein- und ausklappen.</b> Vor jeder eigenständigen Liste steht eine
+      graue Zeile „▾ Liste (n Einträge)“. Ein Klick darauf klappt die ganze Liste samt
+      Unterlisten ein (▸) bzw. wieder aus. Unterlisten einzelner Einträge lassen sich wie
+      bisher über ▾/▸ am Eintrag ein- und ausklappen. Listen in Tabellenrastern haben keinen
+      Schalter.</li>
+  <li><b>Neu: Einstellungsseite <code>about:config</code></b>, verlinkt auf der Startseite:
+    <ul>
+      <li>Cookies zulassen (Standard: an), Übersicht der gespeicherten Cookies je Domain und
+          Knopf „Alle Cookies löschen“.</li>
+      <li>Ganze Listen eingeklappt anzeigen (Standard: aus) und Unterlisten eingeklappt anzeigen
+          (Standard: aus). Das gilt für alle danach geladenen Seiten.</li>
+      <li>Die Einstellungen werden dauerhaft in <code>~/.config/anzeiger/settings.json</code>
+          gespeichert (bzw. unter <code>$XDG_CONFIG_HOME/anzeiger/</code>). Eine fehlende oder
+          beschädigte Datei führt zu den Standardwerten.</li>
+      <li>Nur Formulare eingebauter Seiten können Einstellungen ändern; Formulare von Webseiten,
+          die an <code>about:config</code> gerichtet sind, werden abgelehnt.</li>
+    </ul>
+  </li>
+  <li><b>Behoben:</b> Wurde eine Unterliste ein- und wieder ausgeklappt, blieb sie sichtbar,
+      auch wenn danach die übergeordnete Liste eingeklappt wurde.</li>
+  <li><b>Intern:</b> Neue Module <code>anzeiger/forms.py</code> (Kodieren und Abschicken von
+      Formularen) und <code>anzeiger/settings.py</code> (Einstellungsdatei). <code>net.fetch</code>
+      kann POST-Anfragen senden und verwaltet die Cookies. Neue Tests für Cookies (gegen einen
+      lokalen Testserver), Formularkodierung, Einstellungsdatei und <code>about:config</code>.</li>
+</ul>
+
 <h2 id="v0.2.0">0.2.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Home-Button.</b> In der Werkzeugleiste gibt es links neben „Neu laden“ einen

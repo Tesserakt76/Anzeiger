@@ -1,8 +1,8 @@
 import unittest
 
 from anzeiger.dom import parse_html
-from anzeiger.layout import (FoldEndOp, FoldStartOp, ImageOp, MarkerOp, RuleOp, TextOp, list_number,
-                             render_html)
+from anzeiger.layout import (FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp, MarkerOp, RuleOp,
+                             TextOp, list_number, render_html)
 
 URL = "http://example.org/dir/seite.html"
 
@@ -38,6 +38,41 @@ class DomTest(unittest.TestCase):
         self.assertEqual(root.find("td").text(), "ab")
 
 
+class FormLayoutTest(unittest.TestCase):
+    def test_form_and_fields(self):
+        page = render_html(
+            '<form action="suche" method="POST" enctype="multipart/form-data">'
+            '<input type="hidden" name="t" value="1"><input name="q" size="80">'
+            '<input type="checkbox" name="c" checked><select name="s"><option>A'
+            '<option value="b" selected>B</select><textarea name="x">\nZeile</textarea>'
+            '<button>Los</button></form><input name="frei">', URL)
+        self.assertEqual(len(page.forms), 1)
+        form = page.forms[0]
+        self.assertEqual((form.action, form.method, form.enctype),
+                         ("http://example.org/dir/suche", "post", "multipart/form-data"))
+        fields = [op for op in page.ops if isinstance(op, FieldOp)]
+        self.assertEqual([(f.kind, f.name, f.form) for f in fields],
+                         [("hidden", "t", 0), ("text", "q", 0), ("checkbox", "c", 0), ("select", "s", 0),
+                          ("textarea", "x", 0), ("submit", "", 0), ("text", "frei", None)])
+        self.assertEqual(fields[1].size, 60)
+        self.assertTrue(fields[2].checked)
+        self.assertEqual([(o.value, o.selected) for o in fields[3].options], [("A", False), ("b", True)])
+        self.assertEqual(fields[4].value, "Zeile")
+        self.assertEqual(fields[5].label, "Los")
+
+    def test_empty_action_is_page_url_and_form_attribute(self):
+        page = render_html('<base href="http://cdn.example.org/"><form id="f"></form>'
+                           '<input name="a" form="f"><button type="reset">R</button>', URL)
+        self.assertEqual(page.forms[0].action, URL)
+        fields = [op for op in page.ops if isinstance(op, FieldOp)]
+        self.assertEqual([(f.kind, f.form) for f in fields], [("text", 0), ("reset", None)])
+
+    def test_table_with_controls_is_linear(self):
+        page = render_html('<form><table><tr><td>Name<td><input name="n"></table></form>', URL)
+        self.assertTrue(any(isinstance(op, FieldOp) for op in page.ops))
+        self.assertFalse(any(isinstance(op, TextOp) and "\u2500" in op.text for op in page.ops))
+
+
 class LayoutTest(unittest.TestCase):
     def test_whitespace_and_paragraphs(self):
         self.assertEqual(plain("<p>  Hallo \n  Welt </p><p>Zwei</p>"), "Hallo Welt\n\nZwei")
@@ -52,12 +87,28 @@ class LayoutTest(unittest.TestCase):
     def test_sublists_are_foldable(self):
         ops = render_html("<ul><li>a<ul><li>b<ul><li>c</ul></ul><li>d</ul>", URL).ops
         markers = [(op.text, op.fold) for op in ops if isinstance(op, MarkerOp)]
-        self.assertEqual(markers, [("*", 0), ("*", 1), ("*", None), ("*", None)])
-        kinds = [type(op).__name__ for op in ops if isinstance(op, (FoldStartOp, FoldEndOp))]
-        self.assertEqual(kinds, ["FoldStartOp", "FoldStartOp", "FoldEndOp", "FoldEndOp"])
+        # Fold 0 ist die ganze Liste, 1 und 2 sind Unterlisten.
+        self.assertEqual(markers, [("*", 1), ("*", 2), ("*", None), ("*", None)])
+        folds = [(type(op).__name__, op.fold, getattr(op, "kind", None)) for op in ops
+                 if isinstance(op, (FoldStartOp, FoldEndOp))]
+        self.assertEqual(folds, [("FoldStartOp", 0, "list"), ("FoldStartOp", 1, "sublist"),
+                                 ("FoldStartOp", 2, "sublist"), ("FoldEndOp", 2, None),
+                                 ("FoldEndOp", 1, None), ("FoldEndOp", 0, None)])
         # Der Zeilenumbruch vor der Unterliste gehört zum einklappbaren Bereich.
-        start = next(i for i, op in enumerate(ops) if isinstance(op, FoldStartOp))
+        start = next(i for i, op in enumerate(ops) if isinstance(op, FoldStartOp) and op.kind == "sublist")
         self.assertTrue(ops[start + 1].text.startswith("\n"))
+
+    def test_whole_list_has_toggle_line(self):
+        ops = render_html("<p>x</p><ol><li>a<li>b<li hidden>c</ol>", URL).ops
+        toggles = [op for op in ops if isinstance(op, ListToggleOp)]
+        self.assertEqual([(t.fold, t.label) for t in toggles], [(0, "Liste (2 Einträge)")])
+        index = ops.index(toggles[0])
+        self.assertIsInstance(ops[index + 1], FoldStartOp)
+        self.assertEqual(plain("<p>x</p><ul><li>a</ul>"), "x\n\n* a")
+
+    def test_lists_in_grid_cells_not_foldable(self):
+        ops = render_html("<table><tr><td><ul><li>a<ul><li>b</ul></ul><td>z</table>", URL).ops
+        self.assertFalse(any(isinstance(op, (ListToggleOp, FoldStartOp)) for op in ops))
 
     def test_ordered_start_and_type(self):
         self.assertEqual(plain('<ol start="3" type="a"><li>x<li>y</ol>'), "c. x\nd. y")

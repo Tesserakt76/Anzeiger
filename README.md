@@ -15,8 +15,13 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Bilder (`img`) werden nur geladen, wenn sie auf **demselben Server** liegen (gleiche
   Domain, Subdomains zählen mit, z.B. `www.a.de` und `cdn.a.de`) und PNG, JPEG, GIF, BMP oder WebP sind.
   Sonst erscheint ein Platzhalter `[Bild: alt-Text]` mit Begründung beim Überfahren.
-- Eingebaute Seiten: Startseite `about:start` (Knopf ⌂) und Änderungsprotokoll
-  `about:changelog`, auf der Startseite verlinkt.
+- Ganze Listen lassen sich über die Zeile „▾ Liste (n Einträge)“ einklappen.
+- Formulare (Text, Passwort, Ankreuz-/Optionsfelder, Auswahllisten, Textbereiche) lassen sich
+  ausfüllen und per GET oder POST abschicken. Kein Datei-Upload.
+- Cookies nur im Arbeitsspeicher, keine Drittanbieter-Cookies; abschalt- und löschbar.
+- Eingebaute Seiten: Startseite `about:start` (Knopf ⌂), Änderungsprotokoll
+  `about:changelog` und Einstellungen `about:config`, auf der Startseite verlinkt.
+  Die Einstellungen liegen in `~/.config/anzeiger/settings.json`.
 
 ## Versionen und Änderungsprotokoll
 
@@ -45,6 +50,7 @@ oder nach `pip install .` mit dem Befehl `anzeiger`.
 | Strg+L                | Adresszeile auswählen |
 | Alt+Links / Alt+Rechts| Zurück / Vor          |
 | Alt+Pos1 / ⌂          | Startseite            |
+| Enter in Textfeld     | Formular abschicken   |
 | F5                    | Neu laden             |
 | Esc                   | Laden abbrechen       |
 
@@ -58,11 +64,13 @@ python3 -m unittest discover -s tests
 
 | Modul                 | Aufgabe                                                    |
 |-----------------------|------------------------------------------------------------|
-| `anzeiger/net.py`     | HTTP-GET, nur http/https, Größenlimits, Zeichensatz        |
+| `anzeiger/net.py`     | HTTP-GET/POST, nur http/https, Cookies, Größenlimits, Zeichensatz |
 | `anzeiger/dom.py`     | fehlertoleranter HTML-Baum auf Basis von `html.parser`     |
 | `anzeiger/layout.py`  | Baum → Darstellungsanweisungen (Listen, Tabellen …), ohne Tk |
-| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Fehler)      |
+| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Einstellungen, Fehler) |
+| `anzeiger/forms.py`   | Formulardaten kodieren, GET-/POST-Anfrage bestimmen        |
+| `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`        |
 | `anzeiger/changelog.html` | Änderungsprotokoll                                     |
 | `anzeiger/images.py`  | sicheres Dekodieren/Skalieren erlaubter Bildformate        |
-| `anzeiger/view.py`    | Anzeige im tkinter-Textfeld, Links, Mauszeiger-Hinweise    |
+| `anzeiger/view.py`    | Anzeige im tkinter-Textfeld, Links, Formularfelder, Klappen |
 | `anzeiger/app.py`     | Fenster, Adresszeile, Verlauf, Laden im Hintergrund        |

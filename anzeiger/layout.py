@@ -1,6 +1,6 @@
 """Übersetzt den Dokumentbaum in eine flache Folge von Darstellungsanweisungen.
 
-Die Anweisungen (TextOp, MarkerOp, ImageOp, RuleOp, AnchorOp) sind
+Die Anweisungen (TextOp, MarkerOp, ImageOp, RuleOp, AnchorOp, FieldOp …) sind
 unabhängig von tkinter, damit sich das Layout ohne Fenster testen lässt.
 """
 
@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from urllib.parse import urljoin
 
 from .dom import Element, parse_html
+from .forms import FormInfo, normalize_enctype, normalize_method
 
 BASE_SIZE = 11
 HEADING_SIZES = {"h1": 22, "h2": 18, "h3": 15, "h4": 13, "h5": 11, "h6": 10}
@@ -108,9 +109,22 @@ class AnchorOp:
 
 
 @dataclass
-class FoldStartOp:
-    """Beginn eines einklappbaren Bereichs (Unterliste) des Listeneintrags `fold`."""
+class ListToggleOp:
+    """Eigene Zeile mit Klappschalter vor einer ganzen Liste („▾ Liste (3 Einträge)“)."""
     fold: int
+    label: str
+    style: Style
+
+
+@dataclass
+class FoldStartOp:
+    """Beginn eines einklappbaren Bereichs.
+
+    kind = "sublist": Unterliste des Listeneintrags `fold` (Schalter am Marker),
+    kind = "list": ganze Liste (Schalter in einer ListToggleOp davor).
+    """
+    fold: int
+    kind: str = "sublist"
 
 
 @dataclass
@@ -118,7 +132,50 @@ class FoldEndOp:
     fold: int
 
 
-Op = TextOp | MarkerOp | ImageOp | RuleOp | AnchorOp | FoldStartOp | FoldEndOp
+@dataclass
+class Option:
+    value: str
+    label: str
+    selected: bool = False
+    disabled: bool = False
+
+
+@dataclass
+class FieldOp:
+    """Ein Formularelement (input, button, select, textarea).
+
+    `form` ist der Index in Page.forms oder None, wenn das Feld zu keinem Formular
+    gehört. kind ist der (kleingeschriebene) input-Typ bzw. "select"/"textarea";
+    <button> wird zu "submit", "reset" oder "button".
+    """
+    kind: str
+    name: str
+    value: str
+    style: Style
+    form: int | None = None
+    form_ref: str | None = None      # form="…"-Attribut, wird nach dem Layout aufgelöst
+    label: str = ""                  # Beschriftung von Knöpfen
+    checked: bool = False
+    disabled: bool = False
+    readonly: bool = False
+    placeholder: str = ""
+    size: int = 20                   # Zeichen (Textfeld) bzw. Spalten (textarea)
+    rows: int = 2
+    multiple: bool = False
+    options: list[Option] = field(default_factory=list)
+    formaction: str | None = None    # Überschreibungen am Absendeknopf
+    formmethod: str | None = None
+    formenctype: str | None = None
+
+
+TEXT_KINDS = frozenset({"text", "search", "email", "url", "tel", "number", "password", "date",
+                        "datetime-local", "month", "week", "time", "color", "range"})
+BUTTON_KINDS = frozenset({"submit", "reset", "button", "image"})
+_CONTROLS = ("input", "select", "textarea", "button")
+
+
+Op = (TextOp | MarkerOp | ImageOp | RuleOp | AnchorOp | ListToggleOp | FoldStartOp | FoldEndOp
+      | FieldOp)
 
 
 @dataclass
@@ -126,6 +183,7 @@ class Page:
     url: str
     title: str = ""
     ops: list[Op] = field(default_factory=list)
+    forms: list[FormInfo] = field(default_factory=list)
 
 
 def render_html(source: str, url: str, columns: int = 100) -> Page:
@@ -135,7 +193,7 @@ def render_html(source: str, url: str, columns: int = 100) -> Page:
     base_el = next((e for e in root.iter("base") if e.get("href")), None)
     if base_el is not None:
         base = urljoin(url, base_el.get("href", "").strip())
-    renderer = Renderer(base, columns)
+    renderer = Renderer(base, columns, page_url=url)
     title_el = root.find("title")
     title = _WS.sub(" ", title_el.text()).strip() if title_el is not None else ""
 
@@ -147,7 +205,12 @@ def render_html(source: str, url: str, columns: int = 100) -> Page:
 
     renderer.node(root, PLAIN)
     renderer.finish()
-    return Page(url, title, renderer.ops)
+    # Felder mit form="id" außerhalb ihres Formulars zuordnen.
+    by_id = {form.id: i for i, form in enumerate(renderer.forms) if form.id}
+    for op in renderer.ops:
+        if isinstance(op, FieldOp) and op.form_ref is not None and op.form_ref in by_id:
+            op.form = by_id[op.form_ref]
+    return Page(url, title, renderer.ops, renderer.forms)
 
 
 def render_text(source: str, url: str) -> Page:
@@ -208,9 +271,14 @@ def list_number(n: int, kind: str) -> str:
 
 
 class Renderer:
-    def __init__(self, base_url: str, columns: int = 100) -> None:
+    def __init__(self, base_url: str, columns: int = 100, page_url: str | None = None,
+                 foldable: bool = True) -> None:
         self.base_url = base_url
+        self.page_url = page_url or base_url
         self.columns = columns
+        self.foldable = foldable      # False in Tabellenzellen (dort nur Text)
+        self.forms: list[FormInfo] = []
+        self.current_form: int | None = None
         self.ops: list[Op] = []
         self.pending_break = 0
         self.trailing_nl = 2          # am Dokumentanfang keine Leerzeilen erzeugen
@@ -446,44 +514,97 @@ class Renderer:
             url = urljoin(self.base_url, src)
             self.inline(f"[Rahmen: {url}]", replace(style, href=url))
 
-    # -- Formulare (nur Anzeige) ---------------------------------------------
+    # -- Formulare -------------------------------------------------------------
+
+    def _tag_form(self, el: Element, style: Style) -> None:
+        action = (el.get("action") or "").strip()
+        info = FormInfo(
+            action=urljoin(self.base_url, action) if action else self.page_url,
+            method=normalize_method(el.get("method")),
+            enctype=normalize_enctype(el.get("enctype")),
+            id=el.get("id"),
+        )
+        outer = self.current_form
+        self.forms.append(info)
+        self.current_form = len(self.forms) - 1
+        self._block(el, style, BLOCK["form"])
+        self.current_form = outer
+
+    def _field(self, el: Element, style: Style, **values) -> FieldOp:
+        override = el.get("formaction")
+        op = FieldOp(
+            name=el.get("name") or "",
+            style=replace(style, href=None),
+            form=None if el.get("form") else self.current_form,
+            form_ref=el.get("form"),
+            disabled="disabled" in el.attrs,
+            readonly="readonly" in el.attrs,
+            formaction=urljoin(self.base_url, override.strip()) if override and override.strip() else None,
+            formmethod=normalize_method(el.get("formmethod")) if el.get("formmethod") else None,
+            formenctype=normalize_enctype(el.get("formenctype")) if el.get("formenctype") else None,
+            **values,
+        )
+        if op.kind == "hidden":
+            self.ops.append(op)   # wird mitgeschickt, aber nicht angezeigt
+            return op
+        self._flush()
+        self._space()
+        self.ops.append(op)
+        self.trailing_nl = 0
+        self.after_marker = False
+        return op
 
     def _tag_input(self, el: Element, style: Style) -> None:
-        kind = (el.get("type") or "text").lower()
+        kind = (el.get("type") or "text").strip().lower()
         value = el.get("value") or ""
-        field_style = replace(style, mono=True, dim=True)
-        if kind == "hidden":
-            return
-        if kind in ("submit", "reset", "button"):
-            label = value or {"submit": "Absenden", "reset": "Zurücksetzen"}.get(kind, "")
-            self.inline(f"[{label}]", field_style)
-        elif kind == "checkbox":
-            self.inline("[x]" if "checked" in el.attrs else "[ ]", field_style)
-        elif kind == "radio":
-            self.inline("(•)" if "checked" in el.attrs else "( )", field_style)
-        elif kind == "image":
-            self.inline(f"[{el.get('alt') or 'Bild-Knopf'}]", field_style)
+        if kind in ("checkbox", "radio"):
+            self._field(el, style, kind=kind, value=value or "on", checked="checked" in el.attrs)
+        elif kind in BUTTON_KINDS:
+            default = {"submit": "Absenden", "reset": "Zurücksetzen"}.get(kind, "")
+            label = (el.get("alt") or "Bild-Knopf") if kind == "image" else (value or default)
+            self._field(el, style, kind=kind, value=value, label=label)
+        elif kind in ("hidden", "file"):
+            self._field(el, style, kind=kind, value=value if kind == "hidden" else "")
         else:
-            width = min(_int_attr(el, "size") or 20, 40)
-            shown = value or el.get("placeholder") or ""
-            self.inline("[" + shown[:width].ljust(width, "_") + "]", field_style)
+            size = _int_attr(el, "size") or 20
+            self._field(el, style, kind=kind if kind in TEXT_KINDS else "text", value=value,
+                        placeholder=el.get("placeholder") or "", size=max(1, min(size, 60)))
 
     def _tag_button(self, el: Element, style: Style) -> None:
-        field_style = replace(style, dim=True)
-        self.inline("[", field_style)
-        self.children(el, style)
-        self.inline("]", field_style)
+        kind = (el.get("type") or "submit").strip().lower()
+        if kind not in ("submit", "reset", "button"):
+            kind = "submit"
+        label = _WS.sub(" ", el.text()).strip() or {"submit": "Absenden", "reset": "Zurücksetzen"}.get(kind, "")
+        self._field(el, style, kind=kind, value=el.get("value") or "", label=label)
 
     def _tag_select(self, el: Element, style: Style) -> None:
-        options = list(el.iter("option"))
-        chosen = next((o for o in options if "selected" in o.attrs), options[0] if options else None)
-        label = _WS.sub(" ", chosen.text()).strip() if chosen is not None else ""
-        self.inline(f"[{label} ▾]", replace(style, mono=True, dim=True))
+        options = []
+        for opt in el.iter("option"):
+            label = _WS.sub(" ", opt.get("label") or opt.text()).strip()
+            value = opt.get("value")
+            options.append(Option(_WS.sub(" ", opt.text()).strip() if value is None else value, label,
+                                  "selected" in opt.attrs, "disabled" in opt.attrs))
+        multiple = "multiple" in el.attrs
+        if not multiple and options and not any(o.selected for o in options):
+            first = next((o for o in options if not o.disabled), options[0])
+            first.selected = True
+        if not multiple:
+            chosen = [o for o in options if o.selected]
+            for o in chosen[:-1]:   # bei mehreren „selected“ gilt das letzte
+                o.selected = False
+        self._field(el, style, kind="select", value="", options=options, multiple=multiple,
+                    size=_int_attr(el, "size") or 4)
 
     def _tag_textarea(self, el: Element, style: Style) -> None:
-        content = el.text().strip("\n")
+        content = el.text()
+        if content.startswith("\r\n"):
+            content = content[2:]
+        elif content.startswith("\n"):
+            content = content[1:]
         self.block_break(1)
-        self.text("[" + content + "]", replace(style, mono=True, dim=True, pre=True))
+        self._field(el, style, kind="textarea", value=content, placeholder=el.get("placeholder") or "",
+                    size=max(10, min(_int_attr(el, "cols") or 40, 100)),
+                    rows=max(1, min(_int_attr(el, "rows") or 3, 20)))
         self.block_break(1)
 
     # -- Listen ---------------------------------------------------------------
@@ -503,8 +624,21 @@ class Renderer:
         # Umbrüche davor und danach stehen noch aus, so dass der Zeilenumbruch
         # vor der Unterliste mit eingeklappt wird.
         fold = self.li_folds[-1] if self.li_folds else None
+        kind = "sublist"
+        count = sum(1 for c in el.children if isinstance(c, Element) and c.tag == "li" and "hidden" not in c.attrs)
+        if fold is None and self.foldable and count:
+            # Eigenständige Liste: Kopfzeile mit Schalter, darunter die ganze Liste.
+            fold, kind = self.folds, "list"
+            self.folds += 1
+            self._flush()
+            label = "Liste (1 Eintrag)" if count == 1 else f"Liste ({count} Einträge)"
+            self.ops.append(ListToggleOp(fold, label, replace(style, href=None, info=None, dim=True,
+                                                              bold=False, italic=False)))
+            self.trailing_nl = 1
+            self.after_marker = False
+            self.pending_space = False
         if fold is not None:
-            self.ops.append(FoldStartOp(fold))
+            self.ops.append(FoldStartOp(fold, kind))
         self.list_depth += 1
         inner = replace(style, indent=style.indent + 1)
         start = (el.get("start") or "").strip()
@@ -531,7 +665,7 @@ class Renderer:
 
     def _li(self, el: Element, style: Style, marker: str) -> None:
         fold = None
-        if any(True for tag in ("ul", "ol", "menu", "dir") for _ in el.iter(tag)):
+        if self.foldable and any(True for tag in ("ul", "ol", "menu", "dir") for _ in el.iter(tag)):
             fold = self.folds
             self.folds += 1
         self.block_break(1)
@@ -558,7 +692,9 @@ class Renderer:
         self.block_break(margin)
         if caption is not None:
             self._block(caption, replace(style, bold=True), 1)
-        if el.find("table") is not None or ncols <= 1:
+        has_controls = any(True for tag in _CONTROLS for _ in el.iter(tag))
+        if el.find("table") is not None or ncols <= 1 or has_controls:
+            # Formularfelder lassen sich nicht ins Zeichenraster setzen.
             self._linear_table(rows, style)
         else:
             self._grid_table(rows, style)
@@ -595,7 +731,7 @@ class Renderer:
 
     def _cell_lines(self, cell: Element) -> list[list[tuple[str, Style]]]:
         """Rendert eine Zelle für sich und liefert ihre Zeilen als Textläufe."""
-        sub = Renderer(self.base_url, self.columns)
+        sub = Renderer(self.base_url, self.columns, self.page_url, foldable=False)
         sub.list_depth = 1   # keine Leerzeilen um Listen innerhalb von Zellen
         sub.children(cell, Style(bold=cell.tag == "th"))
         sub.finish()

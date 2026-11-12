@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import codecs
+import http.cookiejar
 import ipaddress
 import re
 import ssl
@@ -41,7 +42,61 @@ class _RedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if urlsplit(newurl).scheme.lower() not in ALLOWED_SCHEMES:
             raise FetchError(f"Weiterleitung auf nicht unterstütztes Protokoll: {newurl}")
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            # Nachgeladene Inhalte bleiben auch nach einer Weiterleitung nachgeladen.
+            new.first_party = getattr(req, "first_party", None)
+        return new
+
+
+class CookiePolicy(http.cookiejar.DefaultCookiePolicy):
+    """Cookies nur für die besuchte Seite selbst, keine Drittanbieter-Cookies.
+
+    Seitenaufrufe (first_party = None) sind immer Erstanbieter. Nachgeladene Inhalte
+    (Bilder) tragen die Adresse der Seite als `first_party`; ihre Cookies werden nur
+    gesetzt und geschickt, wenn sie zur selben Domain gehören.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.enabled = True
+
+    def _allowed(self, request) -> bool:
+        if not self.enabled:
+            return False
+        first_party = getattr(request, "first_party", None)
+        return first_party is None or same_server(first_party, request.get_full_url())
+
+    def set_ok(self, cookie, request) -> bool:
+        return self._allowed(request) and super().set_ok(cookie, request)
+
+    def return_ok(self, cookie, request) -> bool:
+        return self._allowed(request) and super().return_ok(cookie, request)
+
+
+# Cookies liegen nur im Arbeitsspeicher und sind beim Beenden verloren.
+COOKIE_POLICY = CookiePolicy()
+COOKIES = http.cookiejar.CookieJar(policy=COOKIE_POLICY)
+
+
+def set_cookies_enabled(enabled: bool) -> None:
+    """Schaltet Cookies ein oder aus; beim Ausschalten werden alle gelöscht."""
+    COOKIE_POLICY.enabled = enabled
+    if not enabled:
+        COOKIES.clear()
+
+
+def clear_cookies() -> None:
+    COOKIES.clear()
+
+
+def cookie_hosts() -> dict[str, int]:
+    """Anzahl gespeicherter Cookies je Domain, sortiert."""
+    counts: dict[str, int] = {}
+    for cookie in COOKIES:
+        domain = cookie.domain.lstrip(".")
+        counts[domain] = counts.get(domain, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _build_opener() -> urllib.request.OpenerDirector:
@@ -54,6 +109,7 @@ def _build_opener() -> urllib.request.OpenerDirector:
         urllib.request.HTTPSHandler(context=ssl.create_default_context()),
         urllib.request.HTTPDefaultErrorHandler(),
         _RedirectHandler(),
+        urllib.request.HTTPCookieProcessor(COOKIES),
         urllib.request.HTTPErrorProcessor(),
     ):
         opener.add_handler(handler)
@@ -128,17 +184,38 @@ def normalize_url(url: str) -> str:
     ))
 
 
+def origin(url: str) -> str | None:
+    parts = urlsplit(url)
+    if not is_supported(url) or not parts.hostname:
+        return None
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+
+
 def fetch(url: str, accept: str = "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-          max_bytes: int = MAX_PAGE_BYTES) -> Response:
-    """Führt ein HTTP GET aus. HTTP-Fehlerseiten (404 …) werden als Antwort geliefert."""
+          max_bytes: int = MAX_PAGE_BYTES, *, data: bytes | None = None,
+          content_type: str | None = None, from_page: str | None = None,
+          first_party: str | None = None) -> Response:
+    """Führt ein HTTP GET aus, mit `data` ein POST (Formular).
+
+    HTTP-Fehlerseiten (404 …) werden als Antwort geliefert. `from_page` ist die Seite,
+    deren Formular abgeschickt wird (für den Origin-Kopf); `first_party` die Seite,
+    für die ein Inhalt nachgeladen wird (Drittanbieter-Cookies).
+    """
     if not is_supported(url):
         raise FetchError("Nur HTTP und HTTPS werden unterstützt.")
-    request = urllib.request.Request(normalize_url(url), headers={
+    headers = {
         "User-Agent": USER_AGENT,
         "Accept": accept,
         "Accept-Encoding": "gzip, deflate",
         "Accept-Language": "de,en;q=0.7",
-    })
+    }
+    if data is not None:
+        headers["Content-Type"] = content_type or "application/x-www-form-urlencoded"
+        page_origin = origin(from_page) if from_page else None
+        headers["Origin"] = page_origin or "null"
+    request = urllib.request.Request(normalize_url(url), data=data, headers=headers,
+                                     method="POST" if data is not None else "GET")
+    request.first_party = first_party
     try:
         response = _OPENER.open(request, timeout=TIMEOUT)
     except urllib.error.HTTPError as error:

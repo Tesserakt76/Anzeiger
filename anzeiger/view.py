@@ -8,8 +8,8 @@ import tkinter.font as tkfont
 from collections.abc import Callable
 from tkinter import ttk
 
-from .layout import (AnchorOp, FoldEndOp, FoldStartOp, ImageOp, MarkerOp, Page, RuleOp,
-                     Style, TextOp)
+from .layout import (TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
+                     MarkerOp, Page, RuleOp, Style, TextOp)
 
 EXPANDED = "\u25be"   # ▾
 COLLAPSED = "\u25b8"  # ▸
@@ -20,13 +20,28 @@ BACKGROUND = "#ffffff"
 FOREGROUND = "#1b1b1b"
 PAD_X = 18
 
+Entries = list[tuple[str, str]]
+# on_submit(Formular-Index oder None, auslösender Knopf oder None, Name/Wert-Paare)
+SubmitCallback = Callable[[int | None, FieldOp | None, Entries], None]
+
+
+class _Field:
+    """Ein angezeigtes Formularfeld mit Zugriff auf seinen aktuellen Wert."""
+
+    def __init__(self, op: FieldOp) -> None:
+        self.op = op
+        self.widget: tk.Widget | None = None
+        self.entries: Callable[[FieldOp | None], Entries] = lambda _submitter: []
+        self.reset: Callable[[], None] = lambda: None
+
 
 class PageView(ttk.Frame):
     def __init__(self, master: tk.Misc, on_link: Callable[[str], None],
-                 on_hover: Callable[[str | None], None]) -> None:
+                 on_hover: Callable[[str | None], None], on_submit: SubmitCallback) -> None:
         super().__init__(master)
         self.on_link = on_link
         self.on_hover = on_hover
+        self.on_submit = on_submit
 
         self.text = tk.Text(
             self, wrap="word", padx=PAD_X, pady=12, borderwidth=0, highlightthickness=0,
@@ -61,6 +76,14 @@ class PageView(ttk.Frame):
         self._pressed: str | None = None
         self._hover: str | None = None
         self.images: list[tuple[int, ImageOp]] = []
+        self._fields: list[_Field] = []
+        self._radio_groups: dict[tuple, tuple[tk.StringVar, str]] = {}
+        self._fold_kinds: dict[str, str] = {}
+
+        style = ttk.Style(self)
+        for name in ("TCheckbutton", "TRadiobutton"):
+            style.configure("Page." + name, background=BACKGROUND)
+        style.configure("Placeholder.TEntry", foreground=DIM_COLOR)
 
         self.text.tag_configure("link", foreground=LINK_COLOR, underline=True)
         self.text.tag_configure("dim", foreground=DIM_COLOR)
@@ -169,6 +192,12 @@ class PageView(ttk.Frame):
         for rule in self._rules:
             rule.destroy()
         self._rules.clear()
+        for f in self._fields:
+            if f.widget is not None:
+                f.widget.destroy()
+        self._fields.clear()
+        self._radio_groups.clear()
+        self._fold_kinds.clear()
         self._photos.clear()
         self._hrefs.clear()
         self._href_ids.clear()
@@ -182,9 +211,14 @@ class PageView(ttk.Frame):
                 self.text.tag_delete(tag)
         self.text.configure(state="disabled")
 
-    def show(self, page: Page, image_note: Callable[[ImageOp], str | None]) -> None:
-        """Zeigt eine Seite an. `image_note` liefert für nicht ladbare Bilder den Grund."""
+    def show(self, page: Page, image_note: Callable[[ImageOp], str | None],
+             collapse_lists: bool = False, collapse_sublists: bool = False) -> None:
+        """Zeigt eine Seite an. `image_note` liefert für nicht ladbare Bilder den Grund.
+
+        `collapse_lists`/`collapse_sublists`: ganze Listen bzw. Unterlisten eingeklappt zeigen.
+        """
         self.clear()
+        collapsed = {"list": collapse_lists, "sublist": collapse_sublists}
         text = self.text
         text.configure(state="normal")
         batch: list = []
@@ -203,19 +237,31 @@ class PageView(ttk.Frame):
                 font = self._font(op.style)
                 level = max(1, op.style.indent)
                 label = op.text + " "
-                toggle = f"{EXPANDED} " if op.fold is not None else ""
+                symbol = COLLAPSED if collapse_sublists else EXPANDED
+                toggle = f"{symbol} " if op.fold is not None else ""
                 hang = max(0, level * self.indent_px - font.measure(toggle + label))
                 tag = self._tag(f"hang:{level}:{hang}", lmargin1=hang, lmargin2=level * self.indent_px)
                 if toggle:
                     batch.extend((toggle, (tag, f"toggle:{op.fold}", "dim") + self._tags(op.style)[:1]))
                 batch.extend((label, (tag,) + self._tags(op.style)[:1]))
+            elif isinstance(op, ListToggleOp):
+                symbol = COLLAPSED if collapse_lists else EXPANDED
+                tags = self._tags(op.style)
+                toggle = f"toggle:{op.fold}"
+                batch.extend((f"{symbol} ", tags + (toggle, "dim"), op.label, tags + (toggle,), "\n", tags))
             elif isinstance(op, FoldStartOp):
                 flush()
+                self._fold_kinds[str(op.fold)] = op.kind
                 text.mark_set(f"fold{op.fold}", "end-1c")
                 text.mark_gravity(f"fold{op.fold}", "left")
             elif isinstance(op, FoldEndOp):
                 flush()
                 text.tag_add(f"fold:{op.fold}", f"fold{op.fold}", "end-1c")
+                if collapsed.get(self._fold_kinds.get(str(op.fold), "sublist")):
+                    text.tag_configure(f"fold:{op.fold}", elide=True)
+            elif isinstance(op, FieldOp):
+                flush()
+                self._add_field(op)
             elif isinstance(op, ImageOp):
                 number = len(self.images)
                 self.images.append((number, op))
@@ -269,15 +315,215 @@ class PageView(ttk.Frame):
         self.text.yview(mark)
         return True
 
+    # -- Formularfelder ---------------------------------------------------------
+
+    def _add_field(self, op: FieldOp) -> None:
+        field = _Field(op)
+        self._fields.append(field)
+        if op.kind == "hidden":
+            field.entries = lambda _s: [(op.name, op.value)] if op.name else []
+            return
+        widget = self._make_widget(field)
+        field.widget = widget
+        if op.disabled:
+            try:
+                widget.configure(state="disabled")
+            except tk.TclError:
+                pass
+            field.entries = lambda _s: []
+        self.text.window_create("end", window=widget, align="baseline", padx=1)
+        index = self.text.index("end-2c")
+        for tag in self._tags(op.style):
+            self.text.tag_add(tag, index)
+
+    def _make_widget(self, field: _Field) -> tk.Widget:
+        op, text = field.op, self.text
+        kind = op.kind
+        if kind in TEXT_KINDS:
+            return self._make_entry(field)
+        if kind == "checkbox":
+            var = tk.BooleanVar(value=op.checked)
+            field.entries = lambda _s: [(op.name, op.value)] if op.name and var.get() else []
+            field.reset = lambda: var.set(op.checked)
+            return ttk.Checkbutton(text, variable=var, style="Page.TCheckbutton", takefocus=True)
+        if kind == "radio":
+            key = (op.form, op.name) if op.name else ("ohne Namen", len(self._fields))
+            var, _initial = self._radio_groups.get(key, (None, ""))
+            if var is None:
+                var = tk.StringVar(value="")
+            own = str(len(self._fields))
+            if op.checked:
+                var.set(own)
+            self._radio_groups[key] = (var, var.get())
+            field.entries = lambda _s: [(op.name, op.value)] if op.name and var.get() == own else []
+            field.reset = lambda: var.set(self._radio_groups[key][1])
+            return ttk.Radiobutton(text, variable=var, value=own, style="Page.TRadiobutton")
+        if kind in ("submit", "image"):
+            def entries(submitter: FieldOp | None) -> Entries:
+                if submitter is not op:
+                    return []
+                if kind == "image":
+                    prefix = op.name + "." if op.name else ""
+                    return [(prefix + "x", "0"), (prefix + "y", "0")]
+                return [(op.name, op.value)] if op.name else []
+            field.entries = entries
+            return ttk.Button(text, text=op.label, command=lambda: self.submit(op.form, op))
+        if kind == "reset":
+            return ttk.Button(text, text=op.label, command=lambda: self.reset_form(op.form))
+        if kind == "file":
+            field.entries = lambda _s: [(op.name, "")] if op.name else []
+            button = ttk.Button(text, text="Datei wählen …")
+            button.state(["disabled"])
+            return button
+        if kind == "select":
+            return self._make_select(field)
+        if kind == "textarea":
+            box = tk.Text(text, width=op.size, height=op.rows, wrap="word", font=self.base_font,
+                          borderwidth=1, relief="solid", highlightthickness=1, undo=True)
+            box.insert("1.0", op.value)
+            if op.readonly:
+                box.configure(state="disabled")
+            box.bind("<Tab>", self._focus_next)
+
+            def reset() -> None:
+                state = box.cget("state")
+                box.configure(state="normal")
+                box.delete("1.0", "end")
+                box.insert("1.0", op.value)
+                box.configure(state=state)
+            field.entries = lambda _s: [(op.name, box.get("1.0", "end-1c"))] if op.name else []
+            field.reset = reset
+            return box
+        # type="button" (nur mit JavaScript sinnvoll)
+        button = ttk.Button(text, text=op.label or "Knopf")
+        button.state(["disabled"])
+        return button
+
+    def _make_entry(self, field: _Field) -> ttk.Entry:
+        op = field.op
+        var = tk.StringVar(value=op.value)
+        entry = ttk.Entry(self.text, textvariable=var, width=op.size, font=self.base_font,
+                          show="\u2022" if op.kind == "password" else "")
+        placeholder = {"active": False}
+
+        def show_placeholder() -> None:
+            try:
+                focused = self.focus_get() is entry
+            except (KeyError, tk.TclError):
+                focused = False
+            if op.placeholder and not var.get() and op.kind != "password" and not focused:
+                placeholder["active"] = True
+                var.set(op.placeholder)
+                entry.configure(style="Placeholder.TEntry")
+
+        def hide_placeholder(_event: tk.Event | None = None) -> None:
+            if placeholder["active"]:
+                placeholder["active"] = False
+                var.set("")
+                entry.configure(style="TEntry")
+
+        def reset() -> None:
+            hide_placeholder()
+            var.set(op.value)
+            show_placeholder()
+
+        entry.bind("<FocusIn>", hide_placeholder)
+        entry.bind("<FocusOut>", lambda _e: show_placeholder())
+        entry.bind("<Return>", lambda _e: self.submit(op.form, self._default_button(op.form)))
+        entry.bind("<KP_Enter>", lambda _e: self.submit(op.form, self._default_button(op.form)))
+        if op.readonly:
+            entry.state(["readonly"])
+        show_placeholder()
+        field.entries = lambda _s: [(op.name, "" if placeholder["active"] else var.get())] if op.name else []
+        field.reset = reset
+        return entry
+
+    def _make_select(self, field: _Field) -> tk.Widget:
+        op = field.op
+        labels = [o.label for o in op.options]
+        if op.multiple:
+            box = tk.Listbox(self.text, selectmode="multiple", exportselection=False,
+                             height=max(1, min(len(labels), op.size, 10)), font=self.base_font,
+                             width=min(max((len(x) for x in labels), default=10) + 2, 50))
+            box.insert("end", *labels)
+
+            def reset() -> None:
+                box.selection_clear(0, "end")
+                for i, o in enumerate(op.options):
+                    if o.selected:
+                        box.selection_set(i)
+
+            reset()
+            field.entries = lambda _s: [(op.name, op.options[i].value) for i in box.curselection()
+                                        if not op.options[i].disabled] if op.name else []
+            field.reset = reset
+            return box
+        combo = ttk.Combobox(self.text, values=labels, state="readonly", font=self.base_font,
+                             width=min(max((len(x) for x in labels), default=10) + 2, 50))
+        initial = next((i for i, o in enumerate(op.options) if o.selected), -1)
+
+        def reset() -> None:
+            if initial >= 0:
+                combo.current(initial)
+
+        reset()
+
+        def entries(_s: FieldOp | None) -> Entries:
+            i = combo.current()
+            if not op.name or i < 0 or op.options[i].disabled:
+                return []
+            return [(op.name, op.options[i].value)]
+
+        field.entries = entries
+        field.reset = reset
+        return combo
+
+    @staticmethod
+    def _focus_next(event: tk.Event) -> str:
+        """Tab im Textbereich wechselt zum nächsten Feld statt ein Tabzeichen einzufügen."""
+        following = event.widget.tk_focusNext()
+        if following is not None:
+            following.focus_set()
+        return "break"
+
+    def _default_button(self, form: int | None) -> FieldOp | None:
+        """Erster Absendeknopf des Formulars (für Enter in einem Textfeld)."""
+        for f in self._fields:
+            if f.op.form == form and f.op.kind in ("submit", "image"):
+                return f.op
+        return None
+
+    def form_entries(self, form: int | None, submitter: FieldOp | None) -> Entries:
+        """Name/Wert-Paare eines Formulars in Dokumentreihenfolge."""
+        result: Entries = []
+        for f in self._fields:
+            if f.op.form == form and not f.op.disabled:
+                result.extend(f.entries(submitter))
+        return result
+
+    def submit(self, form: int | None, submitter: FieldOp | None) -> None:
+        if submitter is not None and submitter.disabled:
+            return
+        self.on_submit(form, submitter, self.form_entries(form, submitter) if form is not None else [])
+
+    def reset_form(self, form: int | None) -> None:
+        if form is None:
+            return
+        for f in self._fields:
+            if f.op.form == form:
+                f.reset()
+
     # -- Maus und Tastatur ------------------------------------------------------
 
     def toggle_fold(self, fold: str) -> None:
-        """Klappt die Unterlisten eines Listeneintrags ein oder aus (fold = "toggle:N")."""
+        """Klappt eine Liste bzw. die Unterlisten eines Eintrags ein oder aus (fold = "toggle:N")."""
         number = fold.split(":", 1)[1]
         start = self.text.tag_ranges(fold)[0]
         collapsed = self.text.get(start) == EXPANDED
         tags = self.text.tag_names(start)
-        self.text.tag_configure(f"fold:{number}", elide=collapsed)
+        # Beim Ausklappen die Option entfernen statt elide=False zu setzen: sonst würde
+        # der Bereich auch innerhalb einer eingeklappten äußeren Liste sichtbar.
+        self.text.tag_configure(f"fold:{number}", elide=True if collapsed else "")
         self.text.configure(state="normal")
         self.text.delete(start)
         self.text.insert(start, COLLAPSED if collapsed else EXPANDED, tags)
@@ -295,7 +541,8 @@ class PageView(ttk.Frame):
                 url = self._hrefs[tag]
             elif tag.startswith("toggle:"):
                 url = tag
-                info = "Unterliste ein- oder ausklappen"
+                kind = self._fold_kinds.get(tag.split(":", 1)[1])
+                info = "Liste ein- oder ausklappen" if kind == "list" else "Unterliste ein- oder ausklappen"
             elif tag in self._infos:
                 info = self._infos[tag]
         return url, info
