@@ -9,13 +9,14 @@ from concurrent.futures import ThreadPoolExecutor
 from tkinter import messagebox, ttk
 from urllib.parse import urlsplit
 
-from . import forms, images, net
+from . import bookmarks, forms, images, net
 from .layout import FieldOp, ImageOp, Page, render_html, render_text
-from .pages import (CONFIG_URL, HOME_URL, PageContext, error_page, internal_page, internal_url,
-                    is_internal)
+from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, PageContext, error_page, internal_page,
+                    internal_url, is_internal)
 from .settings import Settings, default_path
 
 MAX_IMAGES_PER_PAGE = 300
+MAX_MENU_ENTRIES = 50   # je Ordner im Lesezeichen-Menü
 
 
 class App:
@@ -26,6 +27,9 @@ class App:
         self.settings_path = default_path()
         self.settings = Settings.load(self.settings_path)
         net.set_cookies_enabled(self.settings.cookies_enabled)
+        self.bookmarks_path = bookmarks.default_path()
+        self.bookmarks_edit = False
+        self._bookmarks_cache: tuple[float, bookmarks.Folder] | None = None
         self.page: Page | None = None
         root.title("Anzeiger")
         root.geometry("1000x750")
@@ -39,13 +43,18 @@ class App:
         self.reload_button = ttk.Button(bar, text="↻", width=3, command=self.reload)
         self.url_var = tk.StringVar()
         self.entry = ttk.Entry(bar, textvariable=self.url_var)
+        self.star_button = ttk.Button(bar, text="☆", width=3, command=self.toggle_bookmark)
         go_button = ttk.Button(bar, text="Los", command=self.go)
+        self.bookmark_menu = tk.Menu(root, tearoff=False, postcommand=self._fill_bookmark_menu)
+        menu_button = ttk.Menubutton(bar, text="Lesezeichen", menu=self.bookmark_menu)
         self.back_button.pack(side="left")
         self.forward_button.pack(side="left", padx=(2, 0))
         self.home_button.pack(side="left", padx=(2, 0))
         self.reload_button.pack(side="left", padx=(2, 6))
         self.entry.pack(side="left", fill="x", expand=True)
+        self.star_button.pack(side="left", padx=(2, 0))
         go_button.pack(side="left", padx=(6, 0))
+        menu_button.pack(side="left", padx=(6, 0))
 
         self.status = tk.StringVar()
         ttk.Label(root, textvariable=self.status, anchor="w", padding=(8, 2)).pack(side="bottom", fill="x")
@@ -60,6 +69,11 @@ class App:
         root.bind("<Alt-Right>", lambda _e: self.forward())
         root.bind("<Alt-Home>", lambda _e: self.home())
         root.bind("<F5>", lambda _e: self.reload())
+        # Auch direkt an der Adresszeile, damit Strg+D dort kein Zeichen löscht.
+        for widget in (root, self.entry):
+            widget.bind("<Control-d>", self._bookmark_key)
+        root.bind("<Control-Shift-O>", lambda _e: self.navigate(BOOKMARKS_URL))
+        root.bind("<Control-Shift-o>", lambda _e: self.navigate(BOOKMARKS_URL))
         root.bind("<Escape>", lambda _e: self.stop())
 
         self.history: list[str] = []
@@ -112,6 +126,7 @@ class App:
             self.url_var.set(url)
             self.view.scroll_to(fragment)
             self._update_buttons()
+            self._update_star()
             return
         self.navigate(url)
 
@@ -137,8 +152,11 @@ class App:
         if is_internal(action):
             # Eingebaute Seiten nehmen nur Formulare eingebauter Seiten an, damit
             # keine Webseite Einstellungen ändern kann.
-            if is_internal(page.url) and internal_url(action) == CONFIG_URL and method == "post":
+            target = internal_url(action)
+            if is_internal(page.url) and method == "post" and target == CONFIG_URL:
                 self._config_post(entries)
+            elif is_internal(page.url) and method == "post" and target == BOOKMARKS_URL:
+                self._bookmarks_post(entries)
             else:
                 self._set_status("Formular abgelehnt: Ziel ist eine eingebaute Seite.")
             return
@@ -184,8 +202,123 @@ class App:
         self._show_internal(CONFIG_URL, message)
         self._set_status(message)
 
+    # -- Lesezeichen ---------------------------------------------------------------
+
+    def _bookmarks(self) -> bookmarks.Folder:
+        """Lesezeichen aus der Datei; neu gelesen, sobald sie sich geändert hat."""
+        try:
+            mtime = self.bookmarks_path.stat().st_mtime
+        except OSError:
+            mtime = -1.0
+        if self._bookmarks_cache is None or self._bookmarks_cache[0] != mtime:
+            try:
+                self._bookmarks_cache = (mtime, bookmarks.load(self.bookmarks_path))
+            except OSError as error:
+                self._set_status(f"Lesezeichen-Datei nicht lesbar: {error}")
+                return bookmarks.Folder("Lesezeichen")
+        return self._bookmarks_cache[1]
+
+    def _bookmark_key(self, _event: tk.Event) -> str:
+        self.toggle_bookmark()
+        return "break"
+
+    def toggle_bookmark(self) -> None:
+        """Setzt ein Lesezeichen für die aktuelle Seite oder entfernt es nach Rückfrage."""
+        url = self.current_url
+        if not url or not net.is_supported(url):
+            self._set_status("Nur Webseiten (HTTP/HTTPS) können als Lesezeichen gespeichert werden.")
+            return
+        try:
+            if self._bookmarks().find_url(url) is None:
+                title = self.page.title if self.page and self.page.title else url
+                bookmarks.add(self.bookmarks_path, url, title)
+                message = f"Lesezeichen gespeichert: {title}"
+            elif messagebox.askyesno("Lesezeichen entfernen?",
+                                     f"Das Lesezeichen für\n{url}\nentfernen?", parent=self.root):
+                bookmarks.remove_url(self.bookmarks_path, url)
+                message = "Lesezeichen entfernt."
+            else:
+                return
+        except OSError as error:
+            message = f"Lesezeichen konnte nicht gespeichert werden: {error}"
+        self._update_star()
+        self._set_status(message)
+
+    def _update_star(self) -> None:
+        url = self.current_url
+        marked = bool(url and net.is_supported(url) and self._bookmarks().find_url(url) is not None)
+        self.star_button.configure(text="★" if marked else "☆")
+
+    def _fill_bookmark_menu(self) -> None:
+        menu = self.bookmark_menu
+        menu.delete(0, "end")
+        url = self.current_url
+        marked = bool(url and net.is_supported(url) and self._bookmarks().find_url(url) is not None)
+        menu.add_command(label="Lesezeichen entfernen" if marked else "Lesezeichen für diese Seite",
+                         accelerator="Strg+D", command=self.toggle_bookmark,
+                         state="normal" if url and net.is_supported(url) else "disabled")
+        menu.add_command(label="Lesezeichen verwalten", accelerator="Strg+Umschalt+O",
+                         command=lambda: self.navigate(BOOKMARKS_URL))
+        root = self._bookmarks()
+        if root.children:
+            menu.add_separator()
+            self._add_menu_entries(menu, root)
+
+    def _add_menu_entries(self, menu: tk.Menu, folder: bookmarks.Folder) -> None:
+        shown = 0
+        for child in folder.children:
+            if shown >= MAX_MENU_ENTRIES:
+                menu.add_command(label="… weitere unter „Lesezeichen verwalten“",
+                                 command=lambda: self.navigate(BOOKMARKS_URL))
+                break
+            if isinstance(child, bookmarks.Folder):
+                submenu = tk.Menu(menu, tearoff=False)
+                self._add_menu_entries(submenu, child)
+                if not child.children:
+                    submenu.add_command(label="(leer)", state="disabled")
+                menu.add_cascade(label=_short(child.title or "(Ordner ohne Namen)"), menu=submenu)
+            elif isinstance(child, bookmarks.Bookmark):
+                menu.add_command(label=_short(child.title or child.url),
+                                 command=lambda u=child.url: self.follow_link(u))
+            else:   # Trennlinie, aber nie zwei hintereinander
+                if menu.index("end") is not None and menu.type("end") != "separator":
+                    menu.add_separator()
+                continue
+            shown += 1
+
+    def _bookmarks_post(self, entries: list[tuple[str, str]]) -> None:
+        data: dict[str, str] = dict(entries)
+        action = data.get("action")
+        where = bookmarks.parse_path(data.get("path", ""))
+        url = data.get("url", "")
+        try:
+            if action == "edit":
+                self.bookmarks_edit, message = True, ""
+            elif action == "done":
+                self.bookmarks_edit, message = False, ""
+            elif action == "Umbenennen" and where is not None:
+                if not data.get("title", "").strip():
+                    message = "Der Name darf nicht leer sein."
+                elif bookmarks.rename_at(self.bookmarks_path, where, url, data["title"]):
+                    message = "Lesezeichen umbenannt."
+                else:
+                    message = "Lesezeichen nicht gefunden – die Datei wurde inzwischen geändert."
+            elif action == "Entfernen" and where is not None:
+                if bookmarks.remove_at(self.bookmarks_path, where, url):
+                    message = "Lesezeichen entfernt."
+                else:
+                    message = "Lesezeichen nicht gefunden – die Datei wurde inzwischen geändert."
+            else:
+                message = "Unbekannte Aktion."
+        except OSError as error:
+            message = f"Lesezeichen konnten nicht gespeichert werden: {error}"
+        self._show_internal(BOOKMARKS_URL, message)
+        if message:
+            self._set_status(message)
+
     def _render_internal(self, url: str, message: str = "") -> Page:
-        ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message)
+        ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message,
+                          self._bookmarks(), self.bookmarks_path, self.bookmarks_edit)
         return render_html(internal_page(url, ctx), internal_url(url), self.view.columns())
 
     def _show_internal(self, url: str, message: str = "") -> None:
@@ -278,6 +411,7 @@ class App:
                     self.current_url = url
                     self._show(render_html(error_page(url, message), url))
                     self._set_status(message)
+                    self._update_star()
                 elif kind == "image":
                     self.view.set_image(*payload)
                 elif kind == "image-error":
@@ -299,6 +433,7 @@ class App:
         if fragment:
             self.view.scroll_to(fragment)
         self._set_status("Fertig")
+        self._update_star()
         self._load_images(page)
 
     def _show(self, page: Page) -> None:
@@ -358,6 +493,11 @@ class App:
         self.entry.select_range(0, "end")
         self.entry.icursor("end")
         return "break"
+
+
+def _short(label: str, limit: int = 60) -> str:
+    label = " ".join(label.split())
+    return label if len(label) <= limit else label[:limit - 1] + "…"
 
 
 def main() -> None:

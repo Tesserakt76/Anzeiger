@@ -1,4 +1,4 @@
-"""Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Fehlerseite."""
+"""Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Lesezeichen, Fehlerseite."""
 
 from __future__ import annotations
 
@@ -9,11 +9,13 @@ from importlib import resources
 from pathlib import Path
 
 from . import __version__
+from . import bookmarks as bm
 from .settings import Settings, default_path
 
 HOME_URL = "about:start"
 CHANGELOG_URL = "about:changelog"
 CONFIG_URL = "about:config"
+BOOKMARKS_URL = "about:bookmarks"
 
 
 @dataclass
@@ -23,6 +25,9 @@ class PageContext:
     settings_path: Path = field(default_factory=default_path)
     cookies: dict[str, int] = field(default_factory=dict)   # Domain → Anzahl
     message: str = ""
+    bookmarks: bm.Folder = field(default_factory=lambda: bm.Folder("Lesezeichen"))
+    bookmarks_path: Path = field(default_factory=bm.default_path)
+    bookmarks_edit: bool = False
 
 
 START_PAGE = f"""<title>Anzeiger</title>
@@ -35,6 +40,7 @@ START_PAGE = f"""<title>Anzeiger</title>
       und im Format PNG, JPEG, GIF, BMP oder WebP vorliegen.</li>
 </ul>
 <p><a href="{CHANGELOG_URL}">Änderungsprotokoll</a> – was sich in welcher Version geändert hat.<br>
+<a href="{BOOKMARKS_URL}">Lesezeichen</a> – gespeicherte Seiten, kompatibel zu Chrome und Firefox.<br>
 <a href="{CONFIG_URL}">Einstellungen</a> – Cookies, Listen ein- oder ausgeklappt.</p>
 <h2>Tastenkürzel</h2>
 <table border="1">
@@ -42,6 +48,8 @@ START_PAGE = f"""<title>Anzeiger</title>
   <tr><td>Strg+L</td><td>Adresszeile auswählen</td></tr>
   <tr><td>Alt+Links / Alt+Rechts</td><td>Zurück / Vor</td></tr>
   <tr><td>Alt+Pos1</td><td>Startseite</td></tr>
+  <tr><td>Strg+D</td><td>Lesezeichen für die aktuelle Seite setzen oder entfernen</td></tr>
+  <tr><td>Strg+Umschalt+O</td><td>Lesezeichen verwalten</td></tr>
   <tr><td>Enter in einem Textfeld</td><td>Formular abschicken</td></tr>
   <tr><td>F5</td><td>Neu laden</td></tr>
   <tr><td>Esc</td><td>Laden abbrechen</td></tr>
@@ -99,10 +107,71 @@ eine Liste jederzeit auf oder zu.</p>
 """
 
 
+def _bookmark_items(folder: bm.Folder, path: tuple[int, ...], edit: bool, forms: list[str]) -> str:
+    items = []
+    for i, child in enumerate(folder.children):
+        where = path + (i,)
+        if isinstance(child, bm.Folder):
+            inner = _bookmark_items(child, where, edit, forms)
+            title = html.escape(child.title or "(Ordner ohne Namen)")
+            body = f"<ul>{inner}</ul>" if inner else " <small>(leer)</small>"
+            items.append(f"<li><b>{title}</b>{body}</li>")
+        elif isinstance(child, bm.Bookmark):
+            title = html.escape(child.title or child.url)
+            url = html.escape(child.url, quote=True)
+            link = f'<a href="{url}">{title}</a>'
+            if not edit:
+                items.append(f"<li>{link}</li>")
+                continue
+            # Die Felder stehen in der Liste, das zugehörige Formular am Seitenende.
+            form = f"b{bm.format_path(where)}"
+            forms.append(f'<form id="{form}" method="post" action="{BOOKMARKS_URL}">'
+                         f'<input type="hidden" name="path" value="{bm.format_path(where)}">'
+                         f'<input type="hidden" name="url" value="{url}"></form>')
+            items.append(
+                f'<li>{link}<br><input type="text" name="title" size="40" form="{form}" '
+                f'value="{html.escape(child.title, quote=True)}"> '
+                f'<input type="submit" name="action" value="Umbenennen" form="{form}"> '
+                f'<input type="submit" name="action" value="Entfernen" form="{form}"></li>')
+    return "".join(items)
+
+
+def bookmarks_page(ctx: PageContext | None = None) -> str:
+    ctx = ctx or PageContext()
+    message = f"<p><b>{html.escape(ctx.message)}</b></p>" if ctx.message else ""
+    forms: list[str] = []
+    items = _bookmark_items(ctx.bookmarks, (), ctx.bookmarks_edit, forms)
+    count = ctx.bookmarks.count()
+    if items:
+        listing = f"<p>{count} Lesezeichen.</p><ul>{items}</ul>"
+    else:
+        listing = ("<p>Noch keine Lesezeichen. Mit dem Stern ☆ neben der Adresszeile oder "
+                   "<b>Strg+D</b> wird die aktuelle Seite gespeichert.</p>")
+    action, label = ("done", "Fertig") if ctx.bookmarks_edit else ("edit", "Bearbeiten")
+    toggle = (f'<form method="post" action="{BOOKMARKS_URL}"><input type="hidden" name="action" '
+              f'value="{action}"><input type="submit" value="{label}"></form>') if items else ""
+    return f"""<title>Lesezeichen</title>
+<h1>Lesezeichen</h1>
+{message}
+{toggle}
+{listing}
+{"".join(forms)}
+<hr>
+<h2>Datei</h2>
+<p>Die Lesezeichen liegen in <code>{html.escape(str(ctx.bookmarks_path))}</code>.</p>
+<p>Die Datei hat das Lesezeichen-Format, das Chrome und Firefox beim Exportieren
+schreiben und beim Importieren lesen („Lesezeichen aus HTML-Datei importieren“).
+Umgekehrt kann eine aus Chrome oder Firefox exportierte Datei einfach an diese Stelle
+kopiert werden. Ordner, Beschreibungen und Symbole bleiben dabei erhalten.</p>
+<p><a href="{HOME_URL}">Zurück zur Startseite</a></p>
+"""
+
+
 INTERNAL_PAGES: dict[str, Callable[[PageContext | None], str]] = {
     HOME_URL: lambda _ctx: START_PAGE,
     CHANGELOG_URL: changelog_page,
     CONFIG_URL: config_page,
+    BOOKMARKS_URL: bookmarks_page,
 }
 
 

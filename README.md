@@ -18,9 +18,13 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Ganze Listen lassen sich über die Zeile „▾ Liste (n Einträge)“ einklappen.
 - Formulare (Text, Passwort, Ankreuz-/Optionsfelder, Auswahllisten, Textbereiche) lassen sich
   ausfüllen und per GET oder POST abschicken. Kein Datei-Upload.
+- Lesezeichen: Stern ☆ bzw. Strg+D, Menü „Lesezeichen“, Verwaltung auf `about:bookmarks`.
+  Gespeichert in `~/.config/anzeiger/bookmarks.html` im Netscape-Bookmark-Format, das Chrome
+  und Firefox importieren und exportieren.
 - Cookies nur im Arbeitsspeicher, keine Drittanbieter-Cookies; abschalt- und löschbar.
 - Eingebaute Seiten: Startseite `about:start` (Knopf ⌂), Änderungsprotokoll
-  `about:changelog` und Einstellungen `about:config`, auf der Startseite verlinkt.
+  `about:changelog`, Lesezeichen `about:bookmarks` und Einstellungen `about:config`,
+  auf der Startseite verlinkt.
   Die Einstellungen liegen in `~/.config/anzeiger/settings.json`.
 
 ## Versionen und Änderungsprotokoll
@@ -50,6 +54,8 @@ oder nach `pip install .` mit dem Befehl `anzeiger`.
 | Strg+L                | Adresszeile auswählen |
 | Alt+Links / Alt+Rechts| Zurück / Vor          |
 | Alt+Pos1 / ⌂          | Startseite            |
+| Strg+D / ☆            | Lesezeichen setzen/entfernen |
+| Strg+Umschalt+O       | Lesezeichen verwalten |
 | Enter in Textfeld     | Formular abschicken   |
 | F5                    | Neu laden             |
 | Esc                   | Laden abbrechen       |
@@ -67,8 +73,9 @@ python3 -m unittest discover -s tests
 | `anzeiger/net.py`     | HTTP-GET/POST, nur http/https, Cookies, Größenlimits, Zeichensatz |
 | `anzeiger/dom.py`     | fehlertoleranter HTML-Baum auf Basis von `html.parser`     |
 | `anzeiger/layout.py`  | Baum → Darstellungsanweisungen (Listen, Tabellen …), ohne Tk |
-| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Einstellungen, Fehler) |
+| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Lesezeichen, Einstellungen, Fehler) |
 | `anzeiger/forms.py`   | Formulardaten kodieren, GET-/POST-Anfrage bestimmen        |
+| `anzeiger/bookmarks.py`| Lesezeichen-Datei im Netscape-Format (Chrome/Firefox)    |
 | `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`        |
 | `anzeiger/changelog.html` | Änderungsprotokoll                                     |
 | `anzeiger/images.py`  | sicheres Dekodieren/Skalieren erlaubter Bildformate        |

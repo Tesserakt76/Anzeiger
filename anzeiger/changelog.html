@@ -10,6 +10,48 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.4.0">0.4.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Lesezeichen.</b> Seiten lassen sich als Lesezeichen speichern, wieder aufrufen,
+      umbenennen und entfernen.
+    <ul>
+      <li><b>Speichern:</b> Ein Klick auf den Stern ☆ rechts neben der Adresszeile oder
+          <b>Strg+D</b> speichert die aktuelle Seite mit ihrem Titel. Ist die Seite schon
+          gespeichert, ist der Stern gefüllt (★); ein erneuter Klick bzw. Strg+D entfernt das
+          Lesezeichen nach einer Rückfrage. Gespeichert werden nur Webseiten (HTTP/HTTPS), keine
+          eingebauten Seiten. Dieselbe Adresse wird nicht doppelt gespeichert.</li>
+      <li><b>Aufrufen:</b> Das neue Menü „Lesezeichen“ rechts in der Werkzeugleiste zeigt alle
+          Lesezeichen, Ordner als Untermenüs (höchstens 50 Einträge je Ordner, der Rest steht
+          auf der Verwaltungsseite). Es enthält außerdem „Lesezeichen für diese Seite“ bzw.
+          „Lesezeichen entfernen“ und „Lesezeichen verwalten“.</li>
+      <li><b>Verwalten:</b> Die neue eingebaute Seite <code>about:bookmarks</code> (verlinkt auf
+          der Startseite, Tastenkürzel <b>Strg+Umschalt+O</b>) zeigt alle Lesezeichen als
+          Links, Ordner als einklappbare Unterlisten. Nach Klick auf „Bearbeiten“ hat jedes
+          Lesezeichen ein Namensfeld mit den Knöpfen „Umbenennen“ (auch mit Enter) und
+          „Entfernen“; „Fertig“ kehrt zur einfachen Ansicht zurück. Wurde die Datei inzwischen
+          von außen geändert, wird nichts verändert und ein Hinweis angezeigt.</li>
+      <li><b>Datei:</b> Die Lesezeichen liegen in
+          <code>~/.config/anzeiger/bookmarks.html</code> (bzw. unter
+          <code>$XDG_CONFIG_HOME/anzeiger/</code>) im <i>Netscape-Bookmark-Format</i>. Das ist das
+          Format, das Chrome und Firefox beim Exportieren von Lesezeichen als HTML schreiben und
+          beim Importieren lesen. Die Datei lässt sich also direkt in Chrome oder Firefox
+          importieren; umgekehrt kann eine dort exportierte Datei an diese Stelle kopiert werden.
+          Ordner (auch verschachtelt), Trennlinien, Beschreibungen und alle weiteren Angaben der
+          Browser (Datum, Symbole, Schlagwörter, Lesezeichen-Symbolleiste …) bleiben beim
+          Bearbeiten erhalten. Neue Lesezeichen kommen ans Ende der obersten Ebene.</li>
+      <li>Die Datei wird bei jeder Änderung neu eingelesen und sicher geschrieben (erst in eine
+          temporäre Datei, dann umbenannt). Änderungen von außen werden ohne Neustart erkannt.
+          Fehlt die Datei, beginnt der Anzeiger mit einer leeren Sammlung und legt sie beim ersten
+          Lesezeichen an.</li>
+      <li>Formulare auf <code>about:bookmarks</code> werden wie bei <code>about:config</code>
+          nur von eingebauten Seiten angenommen; Webseiten können keine Lesezeichen ändern.</li>
+    </ul>
+  </li>
+  <li><b>Intern:</b> Neues Modul <code>anzeiger/bookmarks.py</code> (Lesen, Schreiben und
+      Ändern der Lesezeichen-Datei) mit eigenen Tests, u.a. mit Beispielexporten von Chrome und
+      Firefox und einer verlustfreien Hin-und-zurück-Prüfung.</li>
+</ul>
+
 <h2 id="v0.3.0">0.3.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Formulare lassen sich ausfüllen und abschicken.</b> Formularfelder erscheinen als
