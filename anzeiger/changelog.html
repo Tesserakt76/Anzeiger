@@ -1,0 +1,44 @@
+<title>Änderungsprotokoll</title>
+<h1>Änderungsprotokoll</h1>
+<p>Alle Änderungen am Anzeiger, die neueste Version zuerst. Die Versionsnummern folgen dem
+Schema <b>Major.Minor.Patch</b>:</p>
+<ul>
+  <li><b>Major</b> – inkompatible Änderungen, z.B. entfallene Funktionen oder geänderte Bedienung.</li>
+  <li><b>Minor</b> – neue Funktionen, die bisheriges Verhalten nicht brechen.</li>
+  <li><b>Patch</b> – Fehlerbehebungen und kleine Korrekturen ohne neue Funktionen.</li>
+</ul>
+<p><a href="about:start">Zurück zur Startseite</a></p>
+<hr>
+
+<h2 id="v0.2.0">0.2.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Home-Button.</b> In der Werkzeugleiste gibt es links neben „Neu laden“ einen
+      Knopf ⌂, der jederzeit zur Startseite zurückführt. Dasselbe geht mit dem
+      Tastenkürzel <b>Alt+Pos1</b>. Der Sprung zur Startseite wird wie jede andere Seite im
+      Verlauf gespeichert, „Zurück“ führt also wieder zur vorherigen Seite.</li>
+  <li><b>Neu: Änderungsprotokoll.</b> Diese Seite. Sie ist unter der Adresse
+      <code>about:changelog</code> erreichbar und auf der Startseite verlinkt.</li>
+  <li><b>Neu: Eingebaute Seiten mit eigener Adresse.</b> Die Startseite hat jetzt die Adresse
+      <code>about:start</code>. Eingebaute Seiten lassen sich in die Adresszeile eingeben,
+      über Links öffnen, neu laden und im Verlauf vor- und zurückblättern. Sie werden
+      sofort angezeigt, ohne dass etwas aus dem Netz geladen wird. Andere Adressen als
+      HTTP, HTTPS und diese eingebauten Seiten werden weiterhin abgelehnt.</li>
+  <li><b>Geändert: Startseite im Verlauf.</b> Die Startseite ist jetzt der erste Eintrag im
+      Verlauf. Nach dem Öffnen der ersten Webseite kommt man mit „Zurück“ wieder zur
+      Startseite.</li>
+  <li><b>Intern:</b> Startseite und Fehlerseite liegen jetzt im neuen Modul
+      <code>anzeiger/pages.py</code>. Das Modul braucht kein tkinter und hat eigene Tests.
+      Das Änderungsprotokoll wird als Datei <code>anzeiger/changelog.html</code> mit dem
+      Paket ausgeliefert.</li>
+</ul>
+
+<h2 id="v0.1.0">0.1.0 (Minor)</h2>
+<ul>
+  <li>Erste Version: Textbrowser für HTTP und HTTPS ohne CSS und JavaScript.</li>
+  <li>Darstellung von Überschriften, Absätzen, Hervorhebungen, <code>pre</code>/<code>code</code>,
+      Zitaten, verschachtelten und einklappbaren Listen, Definitionslisten, Trennlinien
+      und Tabellen (mit <code>colspan</code>/<code>rowspan</code>).</li>
+  <li>Links mit Adressanzeige in der Statuszeile, Sprünge zu Ankern innerhalb der Seite.</li>
+  <li>Bilder nur vom selben Server und nur in den Formaten PNG, JPEG, GIF, BMP und WebP.</li>
+  <li>Adresszeile, Zurück/Vor, Neu laden, Abbrechen und die dazugehörigen Tastenkürzel.</li>
+</ul>

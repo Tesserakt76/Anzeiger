@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 import queue
 import sys
 import tkinter as tk
@@ -10,35 +9,11 @@ from concurrent.futures import ThreadPoolExecutor
 from tkinter import ttk
 from urllib.parse import urlsplit
 
-from . import __version__, images, net
+from . import images, net
 from .layout import ImageOp, Page, render_html, render_text
+from .pages import HOME_URL, error_page, internal_page, is_internal
 
 MAX_IMAGES_PER_PAGE = 300
-
-START_PAGE = f"""<title>Anzeiger</title>
-<h1>Anzeiger {__version__}</h1>
-<p>Ein einfacher Browser, der nur Text darstellt.</p>
-<ul>
-  <li>Unterstützt werden nur <b>HTTP</b> und <b>HTTPS</b>.</li>
-  <li>Kein CSS, kein JavaScript, keine Popups.</li>
-  <li>Bilder werden nur geladen, wenn sie auf demselben Server (gleiche Domain, Subdomains zählen mit) wie die Seite liegen
-      und im Format PNG, JPEG, GIF, BMP oder WebP vorliegen.</li>
-</ul>
-<h2>Tastenkürzel</h2>
-<table border="1">
-  <tr><th>Taste</th><th>Wirkung</th></tr>
-  <tr><td>Strg+L</td><td>Adresszeile auswählen</td></tr>
-  <tr><td>Alt+Links / Alt+Rechts</td><td>Zurück / Vor</td></tr>
-  <tr><td>F5</td><td>Neu laden</td></tr>
-  <tr><td>Esc</td><td>Laden abbrechen</td></tr>
-</table>
-"""
-
-
-def error_page(url: str, message: str) -> str:
-    return (f"<title>Fehler</title><h1>Seite kann nicht geladen werden</h1>"
-            f"<p><code>{html.escape(url)}</code></p><p>{html.escape(message)}</p>")
-
 
 class App:
     def __init__(self, root: tk.Tk, start_url: str | None = None) -> None:
@@ -53,12 +28,14 @@ class App:
         bar.pack(side="top", fill="x")
         self.back_button = ttk.Button(bar, text="←", width=3, command=self.back)
         self.forward_button = ttk.Button(bar, text="→", width=3, command=self.forward)
+        self.home_button = ttk.Button(bar, text="⌂", width=3, command=self.home)
         self.reload_button = ttk.Button(bar, text="↻", width=3, command=self.reload)
         self.url_var = tk.StringVar()
         self.entry = ttk.Entry(bar, textvariable=self.url_var)
         go_button = ttk.Button(bar, text="Los", command=self.go)
         self.back_button.pack(side="left")
         self.forward_button.pack(side="left", padx=(2, 0))
+        self.home_button.pack(side="left", padx=(2, 0))
         self.reload_button.pack(side="left", padx=(2, 6))
         self.entry.pack(side="left", fill="x", expand=True)
         go_button.pack(side="left", padx=(6, 0))
@@ -73,6 +50,7 @@ class App:
         root.bind("<Control-l>", self._focus_entry)
         root.bind("<Alt-Left>", lambda _e: self.back())
         root.bind("<Alt-Right>", lambda _e: self.forward())
+        root.bind("<Alt-Home>", lambda _e: self.home())
         root.bind("<F5>", lambda _e: self.reload())
         root.bind("<Escape>", lambda _e: self.stop())
 
@@ -87,8 +65,7 @@ class App:
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.after(40, self._poll)
 
-        self._show(render_html(START_PAGE, "about:start"))
-        self._update_buttons()
+        self.navigate(HOME_URL)
         if start_url:
             self.url_var.set(start_url)
             root.after(200, self.go)
@@ -100,10 +77,10 @@ class App:
     def go(self) -> None:
         text = self.url_var.get().strip()
         if text:
-            self.navigate(net.user_url(text))
+            self.navigate(text.lower() if is_internal(text) else net.user_url(text))
 
     def navigate(self, url: str, push: bool = True) -> None:
-        if not net.is_supported(url):
+        if not self._allowed(url):
             self._set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
             return
         if push:
@@ -113,7 +90,7 @@ class App:
         self._load(url)
 
     def follow_link(self, url: str) -> None:
-        if not net.is_supported(url):
+        if not self._allowed(url):
             self._set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
             return
         current = self.current_url
@@ -129,6 +106,13 @@ class App:
             self._update_buttons()
             return
         self.navigate(url)
+
+    @staticmethod
+    def _allowed(url: str) -> bool:
+        return net.is_supported(url) or is_internal(url)
+
+    def home(self) -> None:
+        self.navigate(HOME_URL)
 
     def back(self) -> None:
         if self.position > 0:
@@ -165,6 +149,10 @@ class App:
         self._update_buttons()
         self._set_status(f"Lade {url} …")
         columns = self.view.columns()
+        if is_internal(url):
+            # Eingebaute Seiten sofort anzeigen, ohne Netzzugriff
+            self._page_loaded(url, render_html(internal_page(url), url.split("#", 1)[0].lower(), columns))
+            return
 
         def work() -> None:
             try:

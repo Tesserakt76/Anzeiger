@@ -15,6 +15,13 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Bilder (`img`) werden nur geladen, wenn sie auf **demselben Server** liegen (gleiche
   Domain, Subdomains zählen mit, z.B. `www.a.de` und `cdn.a.de`) und PNG, JPEG, GIF, BMP oder WebP sind.
   Sonst erscheint ein Platzhalter `[Bild: alt-Text]` mit Begründung beim Überfahren.
+- Eingebaute Seiten: Startseite `about:start` (Knopf ⌂) und Änderungsprotokoll
+  `about:changelog`, auf der Startseite verlinkt.
+
+## Versionen und Änderungsprotokoll
+
+Die Versionsnummer (`anzeiger/__init__.py` und `pyproject.toml`) folgt dem Schema
+Major.Minor.Patch. Jede Änderung wird in `anzeiger/changelog.html` beschrieben.
 
 ## Voraussetzungen
 
@@ -37,6 +44,7 @@ oder nach `pip install .` mit dem Befehl `anzeiger`.
 | Enter / „Los“         | Adresse laden         |
 | Strg+L                | Adresszeile auswählen |
 | Alt+Links / Alt+Rechts| Zurück / Vor          |
+| Alt+Pos1 / ⌂          | Startseite            |
 | F5                    | Neu laden             |
 | Esc                   | Laden abbrechen       |
 
@@ -53,6 +61,8 @@ python3 -m unittest discover -s tests
 | `anzeiger/net.py`     | HTTP-GET, nur http/https, Größenlimits, Zeichensatz        |
 | `anzeiger/dom.py`     | fehlertoleranter HTML-Baum auf Basis von `html.parser`     |
 | `anzeiger/layout.py`  | Baum → Darstellungsanweisungen (Listen, Tabellen …), ohne Tk |
+| `anzeiger/pages.py`   | eingebaute Seiten (Start, Änderungsprotokoll, Fehler)      |
+| `anzeiger/changelog.html` | Änderungsprotokoll                                     |
 | `anzeiger/images.py`  | sicheres Dekodieren/Skalieren erlaubter Bildformate        |
 | `anzeiger/view.py`    | Anzeige im tkinter-Textfeld, Links, Mauszeiger-Hinweise    |
 | `anzeiger/app.py`     | Fenster, Adresszeile, Verlauf, Laden im Hintergrund        |

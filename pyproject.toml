@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anzeiger"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ein einfacher Textbrowser für HTTP und HTTPS (ohne CSS und JavaScript)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,3 +15,6 @@ anzeiger = "anzeiger.app:main"
 
 [tool.setuptools]
 packages = ["anzeiger"]
+
+[tool.setuptools.package-data]
+anzeiger = ["changelog.html"]
