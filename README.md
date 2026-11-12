@@ -44,7 +44,24 @@ python3 -m anzeiger                      # Startseite
 python3 -m anzeiger https://example.org  # direkt eine Adresse öffnen
 ```
 
-oder nach `pip install .` mit dem Befehl `anzeiger`.
+oder nach `pip install .` (z.B. in einer virtuellen Umgebung) mit dem Befehl `anzeiger`.
+
+## Systemweit installieren (alle Benutzer)
+
+```sh
+sudo apt install python3-tk python3-pil   # falls noch nicht vorhanden
+sudo ./install.sh
+```
+
+Danach steht „Anzeiger“ mit Zeitungssymbol im Anwendungsmenü, und jeder Benutzer kann
+`anzeiger [ADRESSE]` aufrufen. Installiert wird nach `/opt/anzeiger/` (Programm),
+`/usr/local/bin/anzeiger` (Startbefehl), `/usr/local/share/applications/` (Menüeintrag) und
+`/usr/local/share/icons/hicolor/` (Symbole); die Orte lassen sich mit `APPDIR=…` und
+`PREFIX=…` ändern. Erneutes Ausführen aktualisiert, `sudo ./uninstall.sh` entfernt alles.
+Einstellungen und Lesezeichen bleiben pro Benutzer in `~/.config/anzeiger/`.
+
+`sudo pip install .` ist unter aktuellen Debian/Ubuntu-Versionen absichtlich gesperrt
+(PEP 668); `install.sh` braucht weder pip noch Internet.
 
 ## Tastenkürzel
 
@@ -78,6 +95,8 @@ python3 -m unittest discover -s tests
 | `anzeiger/bookmarks.py`| Lesezeichen-Datei im Netscape-Format (Chrome/Firefox)    |
 | `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`        |
 | `anzeiger/changelog.html` | Änderungsprotokoll                                     |
+| `anzeiger/icons/`     | Programmsymbol (SVG, PNG 16–256 px)                        |
+| `install.sh`, `uninstall.sh`, `data/anzeiger.desktop` | systemweite Installation, Menüeintrag |
 | `anzeiger/images.py`  | sicheres Dekodieren/Skalieren erlaubter Bildformate        |
 | `anzeiger/view.py`    | Anzeige im tkinter-Textfeld, Links, Formularfelder, Klappen |
 | `anzeiger/app.py`     | Fenster, Adresszeile, Verlauf, Laden im Hintergrund        |

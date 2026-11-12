@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Anzeiger</title>
+  <!-- hinteres Blatt, leicht verdreht -->
+  <rect x="30" y="40" width="186" height="196" rx="14" fill="#d8d0ba" stroke="#2b2b2b" stroke-width="7"
+        transform="rotate(-7 123 138)"/>
+  <!-- Titelseite -->
+  <rect x="50" y="22" width="186" height="210" rx="14" fill="#fbf8ef" stroke="#2b2b2b" stroke-width="7"/>
+  <!-- Zeitungskopf -->
+  <rect x="68" y="42" width="150" height="32" rx="5" fill="#1f3a5f"/>
+  <rect x="80" y="54" width="88" height="8" rx="4" fill="#fbf8ef"/>
+  <line x1="68" y1="88" x2="218" y2="88" stroke="#2b2b2b" stroke-width="4"/>
+  <!-- Bild -->
+  <rect x="68" y="102" width="70" height="58" rx="4" fill="#3a7bd5"/>
+  <path d="M68 160 L93 128 L110 146 L121 134 L138 160 Z" fill="#cfe0f7"/>
+  <circle cx="122" cy="117" r="7" fill="#ffe08a"/>
+  <!-- Textspalte neben dem Bild -->
+  <g stroke="#8a8a8a" stroke-width="7" stroke-linecap="round">
+    <line x1="154" y1="108" x2="214" y2="108"/>
+    <line x1="154" y1="123" x2="214" y2="123"/>
+    <line x1="154" y1="138" x2="214" y2="138"/>
+    <line x1="154" y1="153" x2="196" y2="153"/>
+    <line x1="72" y1="180" x2="214" y2="180"/>
+    <line x1="72" y1="195" x2="214" y2="195"/>
+    <line x1="72" y1="210" x2="170" y2="210"/>
+  </g>
+</svg>

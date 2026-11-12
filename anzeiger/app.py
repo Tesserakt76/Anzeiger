@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import queue
 import sys
 import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
+from importlib import resources
 from tkinter import messagebox, ttk
 from urllib.parse import urlsplit
 
@@ -500,8 +502,24 @@ def _short(label: str, limit: int = 60) -> str:
     return label if len(label) <= limit else label[:limit - 1] + "…"
 
 
+def set_window_icon(root: tk.Tk) -> None:
+    """Setzt das Zeitungssymbol als Fenstersymbol (fehlt es, bleibt das Standardsymbol)."""
+    icons = resources.files(__package__).joinpath("icons")
+    photos = []
+    for size in (16, 32, 48, 64, 128, 256):
+        try:
+            data = icons.joinpath(f"anzeiger-{size}.png").read_bytes()
+            photos.append(tk.PhotoImage(master=root, data=base64.b64encode(data).decode("ascii")))
+        except (OSError, tk.TclError):
+            continue
+    if photos:
+        root.iconphoto(True, *photos)
+        root.anzeiger_icons = photos  # type: ignore[attr-defined]  # Referenz halten
+
+
 def main() -> None:
     root = tk.Tk(className="Anzeiger")
+    set_window_icon(root)
     App(root, sys.argv[1] if len(sys.argv) > 1 else None)
     root.mainloop()
 

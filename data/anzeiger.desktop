@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Anzeiger
+GenericName=Text Browser
+GenericName[de]=Textbrowser
+Comment=Simple web browser that shows pages as plain text
+Comment[de]=Einfacher Browser, der Webseiten als reinen Text anzeigt
+Exec=anzeiger %u
+Icon=anzeiger
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+Keywords=Web;Browser;Internet;HTML;Lesezeichen;
+StartupWMClass=Anzeiger

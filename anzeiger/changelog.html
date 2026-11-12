@@ -10,6 +10,43 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.5.0">0.5.0 – 12.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Programmsymbol.</b> Der Anzeiger hat ein eigenes Symbol, eine stilisierte Zeitung
+      (Titelseite mit dunkelblauem Zeitungskopf, Bild und Textzeilen vor einem schräg
+      liegenden zweiten Blatt). Es erscheint als Fenstersymbol in der Titelleiste, im
+      Fensterwechsler und in der Taskleiste und nach der Installation auch im Anwendungsmenü.
+      Das Symbol liegt als SVG und als PNG in den Größen 16 bis 256 Pixel bei
+      (<code>anzeiger/icons/</code>) und ist auf hellem wie dunklem Hintergrund gut erkennbar.</li>
+  <li><b>Neu: Systemweite Installation für alle Benutzer</b> mit <code>sudo ./install.sh</code>:
+    <ul>
+      <li>Das Programm wird nach <code>/opt/anzeiger/</code> kopiert und vorübersetzt. Der Befehl
+          <code>anzeiger [ADRESSE]</code> liegt in <code>/usr/local/bin/</code>, der Menüeintrag
+          „Anzeiger“ (Kategorie Internet) in <code>/usr/local/share/applications/</code>, die
+          Symbole im Symbolthema <code>hicolor</code> unter <code>/usr/local/share/icons/</code>.</li>
+      <li>Gestartet wird mit dem Python des Systems im isolierten Modus (<code>python3 -I</code>):
+          Weder das aktuelle Verzeichnis noch <code>PYTHONPATH</code> oder Pakete im
+          Benutzerverzeichnis können dabei fremden Code einschleusen.</li>
+      <li>Es wird nichts aus dem Internet geladen und kein <code>pip</code> benötigt; tkinter und
+          Pillow kommen aus den Paketen des Systems (<code>sudo apt install python3-tk
+          python3-pil</code>). Fehlen sie oder fehlen Schreibrechte, bricht das Skript mit einem
+          Hinweis ab, ohne etwas zu verändern.</li>
+      <li>Erneutes Ausführen aktualisiert eine bestehende Installation. Die Zielorte lassen sich
+          mit den Umgebungsvariablen <code>APPDIR</code> und <code>PREFIX</code> ändern.</li>
+      <li><code>sudo ./uninstall.sh</code> entfernt die Installation wieder vollständig.</li>
+      <li>Einstellungen und Lesezeichen bleiben wie bisher pro Benutzer in
+          <code>~/.config/anzeiger/</code>; jeder Benutzer hat seine eigenen. Die Deinstallation
+          lässt sie unangetastet.</li>
+      <li>Der Menüeintrag meldet den Anzeiger als möglichen Browser für http- und https-Adressen
+          an (er erscheint z.B. unter „Öffnen mit“), macht ihn aber nicht zum Standardbrowser.</li>
+    </ul>
+  </li>
+  <li><b>Intern:</b> Neue Dateien <code>install.sh</code>, <code>uninstall.sh</code>,
+      <code>data/anzeiger.desktop</code> und <code>anzeiger/icons/</code>; die Symbole gehören zu
+      den Paketdaten in <code>pyproject.toml</code>. Neue Tests prüfen Symbolgrößen, Paketdaten
+      und Menüeintrag.</li>
+</ul>
+
 <h2 id="v0.4.0">0.4.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Lesezeichen.</b> Seiten lassen sich als Lesezeichen speichern, wieder aufrufen,
