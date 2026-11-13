@@ -185,7 +185,7 @@ class Page:
     title: str = ""
     ops: list[Op] = field(default_factory=list)
     forms: list[FormInfo] = field(default_factory=list)
-    preloaded: dict[str, bytes] = field(default_factory=dict)   # Bildadresse → fertiges PNG
+    preloaded: dict[str, bytes] = field(default_factory=dict)   # Bildadresse → fertiges Bild (PPM)
 
 
 def render_html(source: str, url: str, columns: int = 100) -> Page:

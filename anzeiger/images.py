@@ -1,8 +1,9 @@
 """Sicheres Dekodieren von Bildern in gängigen Rasterformaten.
 
 Erlaubt sind nur PNG, JPEG, GIF, BMP und WebP (bei GIF nur das erste Bild).
-SVG und andere Formate werden nicht geladen. Das Ergebnis wird als PNG
-geliefert, weil Tk 8.6 PNG ohne Zusatzmodule anzeigen kann.
+SVG und andere Formate werden nicht geladen. Das Ergebnis wird als PPM
+geliefert: Tk liest es ohne Zusatzmodule und viel schneller als PNG, was bei
+Seiten mit vielen Bildern die Oberfläche spürbar weniger blockiert.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ CONTENT_TYPES = ("image/png", "image/jpeg", "image/pjpeg", "image/gif", "image/b
                  "image/x-ms-bmp", "image/webp")
 MAX_PIXELS = 40_000_000
 MAX_HEIGHT = 4000
+BACKGROUND = (255, 255, 255)   # PPM kennt keine Transparenz: auf den Seitenhintergrund rechnen
 
 # Schutz vor "Dekompressionsbomben": Pillow bricht ab dem Doppelten mit Fehler ab,
 # zusätzlich prüfen wir die Größe unten selbst.
@@ -31,7 +33,11 @@ class ImageError(Exception):
 
 def target_size(size: tuple[int, int], width: int | None, height: int | None,
                 max_width: int) -> tuple[int, int]:
-    """Bestimmt die Anzeigegröße aus Originalgröße, width/height-Attributen und Platz."""
+    """Bestimmt die Anzeigegröße aus Originalgröße, width/height-Attributen und Platz.
+
+    Die Attribute verkleinern nur. Viele Seiten nennen dort die Größe des Originalfotos,
+    liefern aber eine kleinere Fassung aus; hochgerechnet würde sie unscharf und teuer.
+    """
     w, h = size
     if width and height:
         w, h = width, height
@@ -39,6 +45,8 @@ def target_size(size: tuple[int, int], width: int | None, height: int | None,
         w, h = width, max(1, round(h * width / w))
     elif height:
         w, h = max(1, round(w * height / h)), height
+    if w > size[0] or h > size[1]:
+        w, h = size
     if max_width > 0 and w > max_width:
         w, h = max_width, max(1, round(h * max_width / w))
     if h > MAX_HEIGHT:
@@ -57,7 +65,7 @@ def probe(data: bytes) -> tuple[str, tuple[int, int]]:
 
 def decode_image(data: bytes, width: int | None = None, height: int | None = None,
                  max_width: int = 0) -> tuple[bytes, tuple[int, int]]:
-    """Dekodiert, skaliert und liefert (PNG-Daten, (Breite, Höhe))."""
+    """Dekodiert, skaliert und liefert (PPM-Daten, (Breite, Höhe))."""
     try:
         image = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)
     except Exception as error:  # Pillow wirft je nach Fehler verschiedene Typen
@@ -73,6 +81,10 @@ def decode_image(data: bytes, width: int | None = None, height: int | None = Non
     size = target_size(image.size, width, height, max_width)
     if size != image.size:
         image = image.resize(size, Image.Resampling.LANCZOS)
+    if has_alpha:
+        flat = Image.new("RGB", size, BACKGROUND)
+        flat.paste(image, mask=image.getchannel("A"))
+        image = flat
     out = io.BytesIO()
-    image.save(out, format="PNG", compress_level=1)
+    image.save(out, format="PPM")
     return out.getvalue(), size

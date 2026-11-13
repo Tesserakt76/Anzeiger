@@ -10,6 +10,7 @@
 #
 # Benötigt das System-Python mit tkinter und Pillow, unter Debian/Ubuntu:
 #   sudo apt install python3-tk python3-pil
+# Empfohlen (Bilder erscheinen deutlich schneller): python3-pil.imagetk
 # Einstellungen und Lesezeichen bleiben pro Benutzer in ~/.config/anzeiger/.
 # Erneutes Ausführen aktualisiert eine bestehende Installation.
 set -eu
@@ -31,6 +32,9 @@ if ! "$PYTHON" -I -c 'import tkinter, PIL' 2>/dev/null; then
     echo "Fehler: tkinter oder Pillow fehlt für $PYTHON." >&2
     echo "Unter Debian/Ubuntu: sudo apt install python3-tk python3-pil" >&2
     exit 1
+fi
+if ! "$PYTHON" -I -c 'from PIL import ImageTk' 2>/dev/null; then
+    echo "Hinweis: Mit python3-pil.imagetk erscheinen Bilder deutlich schneller." >&2
 fi
 if [ ! -f "$SRC/anzeiger/app.py" ]; then
     echo "Fehler: $SRC/anzeiger/app.py fehlt – install.sh muss im Projektordner liegen." >&2

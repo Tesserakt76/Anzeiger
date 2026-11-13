@@ -44,12 +44,23 @@ class ImageTest(unittest.TestCase):
         return out.getvalue()
 
     def test_decode_and_scale(self):
-        png, size = images.decode_image(self._png(), max_width=20)
+        data, size = images.decode_image(self._png(), max_width=20)
         self.assertEqual(size, (20, 10))
-        self.assertTrue(png.startswith(b"\x89PNG"))
+        self.assertTrue(data.startswith(b"P6"))
+        self.assertEqual(Image.open(io.BytesIO(data)).size, (20, 10))
+
+    def test_transparency_on_white(self):
+        out = io.BytesIO()
+        Image.new("RGBA", (4, 4), (0, 0, 0, 0)).save(out, "PNG")
+        data, _size = images.decode_image(out.getvalue())
+        self.assertEqual(Image.open(io.BytesIO(data)).getpixel((1, 1)), (255, 255, 255))
 
     def test_attributes(self):
-        self.assertEqual(images.target_size((40, 20), 80, None, 0), (80, 40))
+        self.assertEqual(images.target_size((40, 20), 20, None, 0), (20, 10))
+        self.assertEqual(images.target_size((40, 20), None, 5, 0), (10, 5))
+        # Attribute vergrößern nicht: Originalfoto 4000×2667 angegeben, ausgeliefert 422×316
+        self.assertEqual(images.target_size((422, 316), 4000, 2667, 1000), (422, 316))
+        self.assertEqual(images.target_size((40, 20), 80, None, 0), (40, 20))
 
     def test_reject_svg(self):
         with self.assertRaises(images.ImageError):
@@ -84,8 +95,8 @@ class ImagePageTest(unittest.TestCase):
         self.assertEqual(page.title, "Grün.jpg (1200×600)")
         image_ops = [op for op in page.ops if isinstance(op, ImageOp)]
         self.assertEqual([op.src for op in image_ops], ["https://a.de/fotos/Gr%C3%BCn.jpg"])
-        png = page.preloaded[image_ops[0].src]
-        self.assertEqual(Image.open(io.BytesIO(png)).size, (600, 300))
+        data = page.preloaded[image_ops[0].src]
+        self.assertEqual(Image.open(io.BytesIO(data)).size, (600, 300))
         text = "".join(getattr(op, "text", "") for op in page.ops)
         self.assertIn("JPEG, 1200×600 Pixel – verkleinert auf 600×300", text)
         self.assertTrue(net.same_server(page.url, image_ops[0].src))

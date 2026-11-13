@@ -10,6 +10,35 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.10.1">0.10.1 – 13.11.2026 (Patch)</h2>
+<ul>
+  <li><b>Behoben: Anzeiger friert nach dem Laden bilderreicher Seiten ein.</b> Bei Seiten wie
+      ksta.de stand der Text schnell da, danach reagierte das Fenster aber rund 15 Sekunden lang
+      nicht – auch der Scrollbalken nicht. Ursache waren die nachgeladenen Bilder (dort 151 Stück):
+    <ul>
+      <li>Alle fertig geladenen Bilder wurden in einem Rutsch in die Seite eingesetzt. Jetzt
+          arbeitet der Anzeiger sie in kurzen Häppchen (höchstens etwa 50 ms am Stück) ab und
+          bleibt dazwischen bedienbar; die Bilder erscheinen nach und nach.</li>
+      <li>Die Bilder werden im Hintergrund in ein Format umgewandelt, das Tk viel schneller
+          übernimmt als bisher PNG. Ist Pillows Tk-Anbindung installiert (Debian/Ubuntu: Paket
+          <code>python3-pil.imagetk</code>), geht es noch einmal rund zehnmal schneller;
+          <code>install.sh</code> weist darauf hin, wenn sie fehlt.</li>
+      <li>Insgesamt sinkt die Rechenzeit für die Bilder auf ksta.de von etwa 17 auf etwa
+          4 Sekunden, und die längste Pause der Oberfläche von 17 Sekunden auf eine Viertelsekunde.</li>
+    </ul>
+  </li>
+  <li><b>Geändert: Bilder werden nicht mehr über ihre Originalgröße hinaus vergrößert.</b> Viele
+      Seiten schreiben in <code>width</code>/<code>height</code> die Größe des Originalfotos
+      (z.B. 4000×2667), liefern aber eine kleine Fassung (z.B. 422×316) aus. Bisher wurde die auf
+      Fensterbreite hochgerechnet – unscharf und unnötig aufwendig. Zum Verkleinern gelten die
+      Angaben weiterhin.</li>
+  <li><b>Behoben: Neue Seite wartet hinter Bildern.</b> Wer einen Link anklickte, während die
+      vorige Seite noch Bilder lud, musste warten, bis diese fertig (oder nach 20 Sekunden
+      abgebrochen) waren. Seiten und Bilder werden jetzt in getrennten Warteschlangen geladen.</li>
+  <li><b>Intern:</b> Transparente Bilder werden auf den weißen Seitenhintergrund gerechnet, da das
+      neue Übergabeformat (PPM) keine Transparenz kennt; das Aussehen bleibt gleich.</li>
+</ul>
+
 <h2 id="v0.10.0">0.10.0 – 13.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Suchen auf der Seite.</b> <b>Strg+F</b> öffnet über der Statuszeile eine Suchleiste.

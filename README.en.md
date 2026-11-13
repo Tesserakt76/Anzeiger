@@ -79,7 +79,7 @@ Major.Minor.Patch. Every change is described (in German) in `anzeiger/changelog.
 ## Requirements
 
 - Python ≥ 3.11 with tkinter (Debian/Ubuntu: package `python3-tk`)
-- Pillow
+- Pillow, preferably with ImageTk (Debian/Ubuntu: `python3-pil.imagetk`) so that images appear faster
 
 ## Running
 
@@ -93,7 +93,7 @@ or, after `pip install .` (e.g. in a virtual environment), with the command `anz
 ## System-wide installation (all users)
 
 ```sh
-sudo apt install python3-tk python3-pil   # if not installed yet
+sudo apt install python3-tk python3-pil python3-pil.imagetk   # if not installed yet
 sudo ./install.sh
 ```
 

@@ -217,6 +217,34 @@ class TabsTest(unittest.TestCase):
         self.assertFalse(self.app.find_visible)
         self.assertEqual(text.tag_ranges("find"), ())
 
+    def test_images_replace_placeholders(self):
+        import io
+        from PIL import Image
+        from anzeiger import images, view
+        from anzeiger.layout import render_html
+        out = io.BytesIO()
+        Image.new("RGBA", (30, 20), (255, 0, 0, 128)).save(out, "PNG")
+        data, _size = images.decode_image(out.getvalue())
+        tab = self.app.tab
+        tab._show(render_html('<p><img src="/a.png" alt="A"> <img src="/b.png" alt="B"></p>', "https://a.de/"))
+        tab.view.set_image(0, data)
+        with mock.patch.object(view, "ImageTk", None):   # ohne python3-pil.imagetk
+            tab.view.set_image(1, data)
+        text = tab.view.text
+        self.assertEqual(len(text.image_names()), 2)
+        self.assertNotIn("[Bild", text.get("1.0", "end"))
+        self.assertEqual(self.root.call("image", "width", text.image_names()[0]), 30)
+
+    def test_poll_leaves_rest_for_next_round(self):
+        tab = self.app.tab
+        for _ in range(3):
+            self.app.results.put((tab, tab.generation, "image-error", (0, "kaputt")))
+        with mock.patch("anzeiger.app.POLL_BUDGET", -1):   # Budget sofort erschöpft
+            self.app._poll()
+        self.assertEqual(self.app.results.qsize(), 2)
+        self.app._poll()
+        self.assertEqual(self.app.results.qsize(), 0)
+
     def test_unchanged_notes_tab_does_not_overwrite(self):
         old = self.app.tab
         old.navigate(NOTES_URL)

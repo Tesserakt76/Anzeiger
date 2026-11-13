@@ -6,6 +6,7 @@ import base64
 import math
 import queue
 import sys
+import time
 import tkinter as tk
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from .view import PageView
 
 MAX_IMAGES_PER_PAGE = 300
+POLL_BUDGET = 0.05   # Sekunden pro Runde für Ergebnisse aus dem Hintergrund
 MAX_MENU_ENTRIES = 50   # je Ordner im Lesezeichen-Menü
 MAX_CLOSED_TABS = 20    # wiederherstellbar mit Strg+Umschalt+T
 MAX_TAB_LABEL = 28      # Zeichen in der Tab-Beschriftung
@@ -236,12 +238,12 @@ class Tab:
         """Direkt aufgerufenes Bild: einmal dekodieren und als fertiges PNG an die Seite hängen."""
         try:
             image_format, size = images.probe(response.body)
-            png, shown = images.decode_image(response.body, max_width=max_width)
+            data, shown = images.decode_image(response.body, max_width=max_width)
         except images.ImageError as error:
             return render_html(error_page(response.url, t("image.cannot_show", error=error)),
                                response.url)
         page = render_html(image_page(response.url, image_format, size, shown), response.url)
-        page.preloaded[response.url] = png
+        page.preloaded[response.url] = data
         return page
 
     def receive(self, kind: str, payload: tuple) -> None:
@@ -313,13 +315,13 @@ class Tab:
                                          max_bytes=net.MAX_IMAGE_BYTES, first_party=page.url)
                     if response.status >= 400:
                         raise images.ImageError(f"HTTP {response.status}")
-                    png, _size = images.decode_image(response.body, op.width, op.height, max_width)
-                    results.put((self, generation, "image", (number, png)))
+                    data, _size = images.decode_image(response.body, op.width, op.height, max_width)
+                    results.put((self, generation, "image", (number, data)))
                 except Exception as error:
                     results.put((self, generation, "image-error",
                                  (number, t("image.failed", error=error, url=op.src))))
 
-            self.app.pool.submit(work)
+            self.app.image_pool.submit(work)
 
 
 class App:
@@ -408,6 +410,8 @@ class App:
         self._opened_from: tuple[Tab, Tab] | None = None   # (Ursprung, zuletzt daraus geöffnet)
         self.results: queue.Queue = queue.Queue()
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="anzeiger")
+        # Eigene Threads für Bilder, damit eine neue Seite nicht hinter langsamen Bildern wartet.
+        self.image_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="anzeiger-bild")
         root.protocol("WM_DELETE_WINDOW", self.close)
         self._poll_job = root.after(40, self._poll)
 
@@ -448,6 +452,7 @@ class App:
             tab.generation += 1
         self.root.after_cancel(self._poll_job)
         self.pool.shutdown(wait=False, cancel_futures=True)
+        self.image_pool.shutdown(wait=False, cancel_futures=True)
         self.root.destroy()
 
     # -- Tabs -----------------------------------------------------------------
@@ -973,14 +978,21 @@ class App:
     # -- Ergebnisse aus dem Hintergrund und Anzeige ---------------------------------
 
     def _poll(self) -> None:
+        # Nur so lange am Stück arbeiten, dass Fenster und Scrollbalken bedienbar bleiben;
+        # was dann noch in der Schlange liegt, kommt gleich in der nächsten Runde dran.
+        deadline = time.monotonic() + POLL_BUDGET
+        delay = 40
         try:
             while True:
                 tab, generation, kind, payload = self.results.get_nowait()
                 if not tab.closed and generation == tab.generation:
                     tab.receive(kind, payload)
+                if time.monotonic() > deadline:
+                    delay = 1
+                    break
         except queue.Empty:
             pass
-        self._poll_job = self.root.after(40, self._poll)
+        self._poll_job = self.root.after(delay, self._poll)
 
     def on_hover(self, message: str | None) -> None:
         self.status.set(message if message else self.tab.status_text)

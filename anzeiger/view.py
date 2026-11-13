@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-import base64
+import io
 import tkinter as tk
 import tkinter.font as tkfont
 from collections.abc import Callable
 from tkinter import ttk
+
+from PIL import Image
+
+try:   # Debian/Ubuntu: eigenes Paket python3-pil.imagetk
+    from PIL import ImageTk
+except ImportError:
+    ImageTk = None
 
 from .i18n import t
 from .layout import (BASE_SIZE, TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
@@ -349,11 +356,20 @@ class PageView(ttk.Frame):
         text.yview_moveto(0)
         text.xview_moveto(0)
 
-    def set_image(self, number: int, png: bytes) -> None:
+    def _photo(self, ppm: bytes) -> tk.PhotoImage:
+        """Tk-Bild aus PPM-Daten; mit Pillows ImageTk etwa zehnmal schneller, falls installiert."""
+        if ImageTk is not None:
+            try:
+                return ImageTk.PhotoImage(Image.open(io.BytesIO(ppm)), master=self.text)
+            except Exception:   # z. B. Pillow ohne Tk-Anbindung: einfacher Weg über Tk
+                pass
+        return tk.PhotoImage(master=self.text, data=ppm, format="ppm")
+
+    def set_image(self, number: int, ppm: bytes) -> None:
         ranges = self.text.tag_ranges(f"img:{number}")
         if not ranges:
             return
-        photo = tk.PhotoImage(data=base64.b64encode(png).decode("ascii"))
+        photo = self._photo(ppm)
         self._photos.append(photo)
         start, end = ranges[0], ranges[1]
         tags = [t for t in self.text.tag_names(start) if not t.startswith(("info:", "dim"))]

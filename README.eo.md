@@ -79,7 +79,7 @@ Major.Minor.Patch. Ĉiu ŝanĝo estas priskribita (germanlingve) en `anzeiger/ch
 ## Antaŭkondiĉoj
 
 - Python ≥ 3.11 kun tkinter (Debian/Ubuntu: pako `python3-tk`)
-- Pillow
+- Pillow, prefere kun ImageTk (Debian/Ubuntu: `python3-pil.imagetk`), por ke bildoj aperu pli rapide
 
 ## Lanĉo
 
@@ -93,7 +93,7 @@ aŭ post `pip install .` (ekz. en virtuala medio) per la komando `anzeiger`.
 ## Instali por la tuta sistemo (ĉiuj uzantoj)
 
 ```sh
-sudo apt install python3-tk python3-pil   # se ankoraŭ ne instalitaj
+sudo apt install python3-tk python3-pil python3-pil.imagetk   # se ankoraŭ ne instalitaj
 sudo ./install.sh
 ```
 

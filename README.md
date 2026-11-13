@@ -78,7 +78,7 @@ Major.Minor.Patch. Jede Änderung wird in `anzeiger/changelog.html` beschrieben.
 ## Voraussetzungen
 
 - Python ≥ 3.11 mit tkinter (Debian/Ubuntu: Paket `python3-tk`)
-- Pillow
+- Pillow, empfohlen mit ImageTk (Debian/Ubuntu: `python3-pil.imagetk`), damit Bilder schneller erscheinen
 
 ## Starten
 
@@ -92,7 +92,7 @@ oder nach `pip install .` (z.B. in einer virtuellen Umgebung) mit dem Befehl `an
 ## Systemweit installieren (alle Benutzer)
 
 ```sh
-sudo apt install python3-tk python3-pil   # falls noch nicht vorhanden
+sudo apt install python3-tk python3-pil python3-pil.imagetk   # falls noch nicht vorhanden
 sudo ./install.sh
 ```
 
