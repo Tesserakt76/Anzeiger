@@ -34,6 +34,8 @@ Simpla retumilo verkita en Python, kiu montras retpaĝojn kiel puran tekston.
   por ĉiuj langetoj kaj restas post restarto.
 - Notoj en `about:notes`: simpla notbloko, konservata per butono aŭ Ctrl+S kaj aŭtomate
   ĉe forlaso de la paĝo, en `~/.config/anzeiger/notes.txt`.
+- Serĉi en la paĝo per Ctrl+F: ĉiuj trovoj estas markitaj, F3 aŭ Enigklavo saltas al la
+  sekva, Shift+F3 aŭ Shift+Enigklavo al la antaŭa.
 - Kuketoj nur en la memoro, neniuj kuketoj de eksteraj liverantoj; malŝalteblaj kaj forigeblaj.
 - Lingvoj: germana, angla kaj Esperanto, elekteblaj en `about:config` (defaŭlte: la sistema
   lingvo). Ĉiuj tekstoj troviĝas en redakteblaj lingvodosieroj, vidu
@@ -126,6 +128,8 @@ Agordoj, legosignoj, notoj kaj propraj lingvodosieroj restas por ĉiu uzanto en
 | Ctrl+1 … 8 / Ctrl+9   | Langeto n-ro 1 … 8 / lasta langeto |
 | Meza klako aŭ Ctrl+klako sur ligilo | Malfermi ligilon en nova langeto |
 | Enigklavo en tekstkampo | Sendi formularon    |
+| Ctrl+F                | Serĉi en la paĝo      |
+| F3 / Shift+F3         | Sekva / antaŭa trovo  |
 | F5                    | Reŝargi               |
 | Esc                   | Ĉesigi ŝargadon       |
 

@@ -20,6 +20,7 @@ DIM_COLOR = "#6b6b6b"
 BACKGROUND = "#ffffff"
 FOREGROUND = "#1b1b1b"
 PAD_X = 18
+MAX_MATCHES = 10000   # Treffer der Seitensuche, mehr werden nicht markiert
 
 Entries = list[tuple[str, str]]
 # on_submit(Formular-Index oder None, auslösender Knopf oder None, Name/Wert-Paare)
@@ -98,6 +99,8 @@ class PageView(ttk.Frame):
         self.text.tag_configure("s", overstrike=True)
         self.text.tag_configure("mark", background="#fff3a3")
         self.text.tag_configure("nowrap", wrap="none", spacing1=0, spacing3=0)
+        self.text.tag_configure("find", background="#ffd966")
+        self.text.tag_configure("find:current", background="#ff9632")
         self.text.tag_raise("sel")
 
         self.text.bind("<Motion>", self._on_motion)
@@ -244,7 +247,7 @@ class PageView(ttk.Frame):
         self.text.configure(state="normal")
         self.text.delete("1.0", "end")
         for name in self.text.mark_names():
-            if name.startswith(("anchor", "fold")):
+            if name.startswith(("anchor", "fold", "findcur")):
                 self.text.mark_unset(name)
         for rule in self._rules:
             rule.destroy()
@@ -370,6 +373,61 @@ class PageView(ttk.Frame):
             return False
         self.text.yview(mark)
         return True
+
+    # -- Suchen auf der Seite ------------------------------------------------------
+
+    def _matches(self, pattern: str) -> list[tuple[str, str]]:
+        """Alle Fundstellen (Anfang, Ende), ohne Groß-/Kleinschreibung; eingeklappte Listen zählen nicht."""
+        matches: list[tuple[str, str]] = []
+        if not pattern:
+            return matches
+        count = tk.IntVar(self)
+        start = "1.0"
+        while len(matches) < MAX_MATCHES:
+            index = self.text.search(pattern, start, stopindex="end", nocase=True, count=count)
+            if not index or count.get() <= 0:
+                break
+            end = self.text.index(f"{index}+{count.get()}c")
+            matches.append((index, end))
+            start = end
+        return matches
+
+    def find(self, pattern: str, step: int = 0) -> tuple[int, int]:
+        """Markiert alle Treffer und springt zum aktuellen.
+
+        step=0 bleibt beim aktuellen Treffer (bzw. nimmt den ersten ab der sichtbaren Stelle),
+        1/-1 geht zum nächsten/vorigen, am Ende geht es von vorn weiter.
+        Liefert (Nummer des aktuellen Treffers ab 1, Anzahl der Treffer).
+        """
+        text = self.text
+        text.tag_remove("find", "1.0", "end")
+        text.tag_remove("find:current", "1.0", "end")
+        matches = self._matches(pattern)
+        if not matches:
+            return 0, 0
+        for start, end in matches:
+            text.tag_add("find", start, end)
+        has_mark = "findcur" in text.mark_names()
+        anchor = text.index("findcur" if has_mark else "@0,0")
+        if step < 0:
+            current = next((i for i in reversed(range(len(matches)))
+                            if text.compare(matches[i][0], "<", anchor)), len(matches) - 1)
+        else:
+            relation = ">" if step > 0 and has_mark else ">="
+            current = next((i for i, (start, _) in enumerate(matches)
+                            if text.compare(start, relation, anchor)), 0)
+        start, end = matches[current]
+        text.tag_add("find:current", start, end)
+        text.mark_set("findcur", start)
+        text.mark_gravity("findcur", "left")
+        text.see(start)
+        return current + 1, len(matches)
+
+    def clear_find(self) -> None:
+        self.text.tag_remove("find", "1.0", "end")
+        self.text.tag_remove("find:current", "1.0", "end")
+        if "findcur" in self.text.mark_names():
+            self.text.mark_unset("findcur")
 
     # -- Formularfelder ---------------------------------------------------------
 

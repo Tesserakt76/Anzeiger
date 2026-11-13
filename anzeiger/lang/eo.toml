@@ -25,10 +25,10 @@ go = "Ek"
 bookmarks_menu = "Legosignoj"
 window_title = "{title} – Anzeiger"
 new_tab = "Nova langeto"
-loading_tab = "Ŝargado …"
+loading_tab = "Ŝargas …"
 only_http = "Nur HTTP kaj HTTPS estas subtenataj: {url}"
-loading = "Ŝargado de {url} …"
-sending = "Sendado de formularo al {url} …"
+loading = "Ŝargas {url} …"
+sending = "Sendas formularon al {url} …"
 done = "Preta"
 cancelled = "Haltigita"
 opened_in_new_tab = "Malfermita en nova langeto: {url}"
@@ -49,6 +49,11 @@ smaller = "Malpligrandigi"
 original = "Originala grandeco"
 level = "{zoom} %"
 status = "Grandigo: {zoom} %"
+
+[find]
+label = "Serĉi:"
+result = "{current} el {total}"
+none = "Neniu trovo"
 
 [form]
 no_form = "Ĉi tiu kampo apartenas al neniu formularo."
@@ -80,7 +85,7 @@ placeholder_alt = "[Bildo: {alt}]"
 table = "[Bildo]"
 no_address = "Bildo sen adreso"
 foreign = "Bildo de alia servilo – ne ŝargita: {url}"
-loading = "Ŝargado de bildo: {url}"
+loading = "Ŝargas bildon: {url}"
 failed = "Bildo ne ŝargita ({error}): {url}"
 cannot_show = "Bildo ne montreblas: {error}"
 unsupported_format = "ne subtenata bildformato (PNG, JPEG, GIF, BMP, WebP)"
@@ -185,6 +190,7 @@ select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Langeto numero 1 ĝis 8, lasta lange
 link_new_tab = ["Meza klako aŭ Ctrl+klako sur ligilo", "Malfermi ligilon en nova fona langeto"]
 submit = ["Enigklavo en tekstkampo", "Sendi la formularon"]
 reload = ["F5", "Reŝargi"]
+find = ["Ctrl+F, F3 / Shift+F3", "Serĉi en la paĝo, sekva / antaŭa trovo"]
 stop = ["Esc", "Ĉesigi la ŝargadon"]
 
 [page.changelog]

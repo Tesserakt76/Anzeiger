@@ -41,7 +41,7 @@ class PageContext:
 # Zeilen der Tastenkürzel-Tabelle auf der Startseite ([page.start.rows] der Sprachdatei)
 SHORTCUT_ROWS = ("address", "back_forward", "home", "bookmark", "manage", "zoom", "zoom_reset", "notes",
                  "new_tab", "close_tab", "reopen_tab", "cycle_tabs", "select_tab", "link_new_tab",
-                 "submit", "reload", "stop")
+                 "submit", "find", "reload", "stop")
 
 
 def start_page(_ctx: PageContext | None = None) -> str:

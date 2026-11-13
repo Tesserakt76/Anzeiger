@@ -50,6 +50,11 @@ original = "Actual size"
 level = "{zoom} %"
 status = "Zoom: {zoom} %"
 
+[find]
+label = "Find:"
+result = "{current} of {total}"
+none = "No matches"
+
 [form]
 no_form = "This field does not belong to a form."
 internal_rejected = "Form rejected: the target is a built-in page."
@@ -185,6 +190,7 @@ select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Tab number 1 to 8, last tab"]
 link_new_tab = ["Middle-click or Ctrl+click on a link", "Open link in a new background tab"]
 submit = ["Enter in a text field", "Submit form"]
 reload = ["F5", "Reload"]
+find = ["Ctrl+F, F3 / Shift+F3", "Find on page, next / previous match"]
 stop = ["Esc", "Stop loading"]
 
 [page.changelog]

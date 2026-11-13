@@ -34,6 +34,8 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
   Tabs und bleibt nach einem Neustart erhalten.
 - Notizen auf `about:notes`: ein einfacher Notizblock, gespeichert mit Knopf oder Strg+S und
   automatisch beim Verlassen der Seite, in `~/.config/anzeiger/notes.txt`.
+- Suchen auf der Seite mit Strg+F: alle Treffer werden markiert, F3 bzw. Enter springt zum
+  nächsten, Umschalt+F3 bzw. Umschalt+Enter zum vorigen.
 - Cookies nur im Arbeitsspeicher, keine Drittanbieter-Cookies; abschalt- und löschbar.
 - Sprachen: Deutsch, Englisch und Esperanto, wählbar auf `about:config` (Standard: Systemsprache).
   Alle Texte stehen in editierbaren Sprachdateien, siehe [Sprachen und Übersetzungen](#sprachen-und-übersetzungen).
@@ -125,6 +127,8 @@ Einstellungen, Lesezeichen, Notizen und eigene Sprachdateien bleiben pro Benutze
 | Strg+1 … 8 / Strg+9   | Tab Nr. 1 … 8 / letzter Tab |
 | Mittel- oder Strg+Klick auf Link | Link in neuem Tab öffnen |
 | Enter in Textfeld     | Formular abschicken   |
+| Strg+F                | Auf der Seite suchen  |
+| F3 / Umschalt+F3      | Nächster / vorheriger Treffer |
 | F5                    | Neu laden             |
 | Esc                   | Laden abbrechen       |
 

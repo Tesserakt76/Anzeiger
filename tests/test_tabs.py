@@ -174,17 +174,48 @@ class TabsTest(unittest.TestCase):
         self.app.config_post(tab, [("action", "save"), ("language", "eo"), ("cookies", "on")])
         self.assertEqual(self.app.settings.language, "eo")
         self.assertIn('"language": "eo"', self.app.settings_path.read_text(encoding="utf-8"))
-        self.assertEqual((tab.status_text, tab.page.title), ("Agordoj konservitaj.", "Agordoj"))
-        self.assertEqual(self.app.go_button.cget("text"), "Iru")
-        self.assertEqual(self.app.zoom_menu.entrycget(0, "label"), "Pligrandigi")
+        self.assertEqual(i18n.language(), "eo")
+        self.assertEqual((tab.status_text, tab.page.title), (i18n.t("config.saved"), i18n.t("page.config.title")))
+        self.assertEqual(self.app.go_button.cget("text"), i18n.t("app.go"))
+        self.assertEqual(self.app.zoom_menu.entrycget(0, "label"), i18n.t("zoom.larger"))
         # Lesezeichen-Knöpfe werden am Namen erkannt, nicht an der (übersetzten) Beschriftung.
         self.app.bookmarks_post(tab, [("title", "Projektoj"), ("dest", ""), ("add-folder", "Krei dosierujon")])
-        self.assertEqual(tab.status_text, "Dosierujo „Projektoj“ kreita.")
+        self.assertEqual(tab.status_text, i18n.t("bookmarks.folder_created", title="Projektoj"))
         self.app.bookmarks_post(tab, [("path", "0"), ("key", "Projektoj"), ("title", "Projekte"),
                                       ("rename", "Renomi")])
         self.assertEqual(self.app._bookmarks().children[0].title, "Projekte")
         self.app.config_post(tab, [("action", "save"), ("language", "de")])
         self.assertEqual(self.app.bookmark_button.cget("text"), "Lesezeichen")
+
+    def test_find_on_page(self):
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        tab._show(render_html("<p>Apfel und Birne</p><ul><li>apfel<ul><li>APFEL</li></ul></li></ul>",
+                              "https://a.de/"))
+        result = lambda: self.app.find_result.cget("text")
+        self.app.open_find()
+        self.assertTrue(self.app.find_visible)
+        self.app.find_var.set("apfel")   # sucht schon beim Tippen
+        self.assertEqual(result(), "1 von 3")
+        self.app.find_step(1)
+        self.app.find_step(1)
+        self.assertEqual(result(), "3 von 3")
+        text = tab.view.text
+        self.assertEqual(text.get(*text.tag_ranges("find:current")), "APFEL")
+        self.app.find_step(1)
+        self.assertEqual(result(), "1 von 3")   # am Ende geht es von vorn weiter
+        self.app.find_step(-1)
+        self.assertEqual(result(), "3 von 3")
+        # Eingeklappte Unterlisten werden nicht durchsucht.
+        tab.view.toggle_fold("toggle:1")
+        self.app.find_step(0)
+        self.assertEqual(result(), "1 von 2")
+        self.app.find_var.set("Kirsche")
+        self.assertEqual(result(), "Keine Treffer")
+        self.app.find_var.set("birne")
+        self.app.close_find()
+        self.assertFalse(self.app.find_visible)
+        self.assertEqual(text.tag_ranges("find"), ())
 
     def test_unchanged_notes_tab_does_not_overwrite(self):
         old = self.app.tab

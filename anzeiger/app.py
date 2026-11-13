@@ -283,6 +283,8 @@ class Tab:
         self.view.show(page, lambda op: self._image_note(page.url, op),
                        collapse_lists=settings.lists_collapsed,
                        collapse_sublists=settings.sublists_collapsed)
+        if self.active and self.app.find_visible:
+            self.app.find_step(0)
 
     @staticmethod
     def _image_note(page_url: str, op: ImageOp) -> str | None:
@@ -370,6 +372,7 @@ class App:
         ttk.Label(root, textvariable=self.status, anchor="w", padding=(8, 2)).pack(side="bottom", fill="x")
         self.notebook = ttk.Notebook(root, takefocus=False)
         self.notebook.pack(side="top", fill="both", expand=True)
+        self._build_find_bar()
         self.notebook.bind("<<NotebookTabChanged>>", self._tab_switched)
         self.notebook.bind("<ButtonRelease-2>", self._tab_middle_click)
         self.notebook.bind("<Button-3>", self._tab_context_menu)
@@ -394,6 +397,10 @@ class App:
                                ("<Control-Key-0>", 0), ("<Control-KP_0>", 0), ("<Control-KP_Insert>", 0)):
             root.bind(sequence, lambda _e, step=step: self._zoom_key(step))
         root.bind("<Control-s>", self._save_key)
+        for sequence in ("<Control-f>", "<Control-F>"):
+            root.bind(sequence, self.open_find)
+        root.bind("<F3>", lambda _e: self.find_step(1))
+        root.bind("<Shift-F3>", lambda _e: self.find_step(-1))
         self.bind_tab_keys(root)
 
         self._tabs: dict[str, Tab] = {}
@@ -567,6 +574,8 @@ class App:
             return
         self._opened_from = None
         self._update_chrome()
+        if self.find_visible:
+            self.find_step(0)
         # Lag der Fokus in der Seite des vorigen Tabs, wandert er mit in den neuen.
         try:
             focus = self.root.focus_get()
@@ -655,6 +664,8 @@ class App:
         self.bookmark_button.configure(text=t("app.bookmarks_menu"))
         self.zoom_button.configure(text=t("zoom.level", zoom=self.settings.zoom))
         self._fill_zoom_menu()
+        self.find_label.configure(text=t("find.label"))
+        self.find_step(0)
         for tab in self._tabs.values():
             self.tab_changed(tab)
 
@@ -856,6 +867,72 @@ class App:
             return None
         self.notes_post(self.tab, [("text", field[1])])
         return "break"
+
+    # -- Suchen auf der Seite ------------------------------------------------------
+
+    def _build_find_bar(self) -> None:
+        """Suchleiste über der Statuszeile; erscheint mit Strg+F."""
+        bar = self.find_bar = ttk.Frame(self.root, padding=(6, 2, 6, 2))
+        self.find_label = ttk.Label(bar, text=t("find.label"))
+        self.find_var = tk.StringVar()
+        self.find_entry = ttk.Entry(bar, textvariable=self.find_var, width=30)
+        previous = ttk.Button(bar, text="▲", width=3, command=lambda: self.find_step(-1))
+        following = ttk.Button(bar, text="▼", width=3, command=lambda: self.find_step(1))
+        self.find_result = ttk.Label(bar)
+        close = ttk.Button(bar, text="✕", width=3, command=self.close_find)
+        self.find_label.pack(side="left")
+        self.find_entry.pack(side="left", padx=(4, 0))
+        previous.pack(side="left", padx=(4, 0))
+        following.pack(side="left", padx=(2, 0))
+        self.find_result.pack(side="left", padx=(8, 0))
+        close.pack(side="right")
+        self.find_var.trace_add("write", lambda *_: self.find_step(0))
+
+        def key(action: Callable[[], object]) -> Callable[[tk.Event], str]:
+            def handler(_event: tk.Event) -> str:
+                action()
+                return "break"
+            return handler
+
+        for sequence, action in (("<Return>", lambda: self.find_step(1)), ("<KP_Enter>", lambda: self.find_step(1)),
+                                 ("<Shift-Return>", lambda: self.find_step(-1)),
+                                 ("<Shift-KP_Enter>", lambda: self.find_step(-1)),
+                                 ("<Escape>", self.close_find)):
+            self.find_entry.bind(sequence, key(action))
+
+    @property
+    def find_visible(self) -> bool:
+        return bool(self.find_bar.winfo_manager())
+
+    def open_find(self, _event: tk.Event | None = None) -> str:
+        if not self.find_visible:
+            self.find_bar.pack(side="bottom", fill="x", before=self.notebook)
+            self.find_step(0)
+        self.find_entry.focus_set()
+        self.find_entry.select_range(0, "end")
+        self.find_entry.icursor("end")
+        return "break"
+
+    def close_find(self) -> None:
+        self.find_bar.pack_forget()
+        for tab in self._tabs.values():
+            tab.view.clear_find()
+        self.tab.view.text.focus_set()
+
+    def find_step(self, step: int) -> None:
+        """Sucht im sichtbaren Tab; step 1/-1 = nächster/voriger Treffer, 0 = Treffer nur auffrischen."""
+        if not self.find_visible:
+            if step:
+                self.open_find()
+            return
+        pattern = self.find_var.get()
+        current, total = self.tab.view.find(pattern, step)
+        if not pattern:
+            self.find_result.configure(text="")
+        elif total:
+            self.find_result.configure(text=t("find.result", current=current, total=total))
+        else:
+            self.find_result.configure(text=t("find.none"))
 
     # -- Lupe ----------------------------------------------------------------------
 

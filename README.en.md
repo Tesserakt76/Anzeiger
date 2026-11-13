@@ -34,6 +34,8 @@ A simple web browser written in Python that shows web pages as plain text.
   tabs and is kept after a restart.
 - Notes on `about:notes`: a simple notepad, saved with the button or Ctrl+S and
   automatically when leaving the page, in `~/.config/anzeiger/notes.txt`.
+- Find on page with Ctrl+F: all matches are highlighted, F3 or Enter jumps to the next,
+  Shift+F3 or Shift+Enter to the previous one.
 - Cookies in memory only, no third-party cookies; can be turned off and deleted.
 - Languages: German, English and Esperanto, selectable on `about:config` (default: system
   language). All texts are in editable language files, see
@@ -126,6 +128,8 @@ Settings, bookmarks, notes and personal language files stay per user in
 | Ctrl+1 … 8 / Ctrl+9   | Tab no. 1 … 8 / last tab |
 | Middle-click or Ctrl+click on link | Open link in new tab |
 | Enter in text field   | Submit form           |
+| Ctrl+F                | Find on page          |
+| F3 / Shift+F3         | Next / previous match |
 | F5                    | Reload                |
 | Esc                   | Stop loading          |
 
