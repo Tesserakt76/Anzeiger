@@ -22,6 +22,7 @@ class InstallFilesTest(unittest.TestCase):
         patterns = data["tool"]["setuptools"]["package-data"]["anzeiger"]
         self.assertIn("icons/*.png", patterns)
         self.assertIn("icons/*.svg", patterns)
+        self.assertIn("lang/*.toml", patterns)
 
     def test_desktop_entry(self):
         entry = configparser.ConfigParser(interpolation=None)

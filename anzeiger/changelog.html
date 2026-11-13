@@ -10,6 +10,56 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.9.0">0.9.0 – 13.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Mehrsprachigkeit – Deutsch, Englisch und Esperanto.</b> Alle Texte des Anzeigers
+      (Knöpfe, Menüs, Statuszeile, Rückfragen, Fehlermeldungen und die eingebauten Seiten) gibt es
+      jetzt in drei Sprachen.
+    <ul>
+      <li>Die Sprache wird auf <code>about:config</code> im neuen Abschnitt „Sprache“ gewählt und
+          in <code>settings.json</code> gespeichert. „Automatisch“ (Voreinstellung) richtet sich nach
+          der Systemsprache (Umgebungsvariablen <code>LANGUAGE</code>, <code>LC_ALL</code>,
+          <code>LC_MESSAGES</code>, <code>LANG</code>); ist sie keine der vorhandenen Sprachen,
+          wird Englisch verwendet.</li>
+      <li>Nach dem Speichern wechseln die Knöpfe „Los“ und „Lesezeichen“, das Lupen-Menü, die
+          Tab-Beschriftungen und alle Menüs sofort. Bereits angezeigte Seiten erscheinen beim
+          nächsten Laden in der neuen Sprache.</li>
+      <li>Webseiten bekommen die gewählte Sprache als bevorzugte Sprache mitgeteilt
+          (<code>Accept-Language</code>, Englisch als zweite Wahl), viele mehrsprachige Seiten
+          antworten dann in dieser Sprache.</li>
+      <li>Auch die Tastenkürzel in den Menüs werden übersetzt (z.B. „Strg+D“ bzw. „Ctrl+D“).</li>
+      <li>Das Änderungsprotokoll bleibt deutsch; auf Englisch und Esperanto steht ein Hinweis
+          darüber.</li>
+    </ul>
+  </li>
+  <li><b>Neu: Editierbare Sprachdateien.</b> Die Texte stehen nicht mehr im Programmcode, sondern
+      in den Dateien <code>anzeiger/lang/de.toml</code>, <code>en.toml</code> und
+      <code>eo.toml</code> (TOML-Format, mit Erläuterungen am Dateianfang).
+    <ul>
+      <li>Eigene Änderungen werden in <code>~/.config/anzeiger/lang/</code> abgelegt: Eine Datei
+          gleichen Namens muss nur die geänderten Texte enthalten und hat Vorrang. So bleiben
+          sie auch nach einer Aktualisierung oder bei systemweiter Installation erhalten.</li>
+      <li>Eine weitere Sprache entsteht, indem man eine Sprachdatei z.B. als <code>fr.toml</code>
+          in diesen Ordner kopiert und übersetzt; sie erscheint dann in der Auswahl. Fehlende
+          Texte werden auf Englisch, notfalls auf Deutsch angezeigt.</li>
+      <li>Fehlerhafte Sprachdateien bringen den Anzeiger nicht zum Absturz: Die Datei wird
+          übergangen und der Fehler mit Dateiname und Zeile auf <code>about:config</code> gemeldet.
+          Ein falsch geschriebener Platzhalter führt nur dazu, dass der Text ohne Ersetzung
+          erscheint.</li>
+    </ul>
+  </li>
+  <li><b>Neu:</b> README zusätzlich auf Englisch (<code>README.en.md</code>) und Esperanto
+      (<code>README.eo.md</code>); der Menüeintrag hat jetzt auch eine Esperanto-Beschreibung.</li>
+  <li><b>Geändert:</b> Der Anzeiger braucht jetzt <b>Python 3.11</b> oder neuer (für das Lesen
+      der TOML-Dateien; Python 3.10 wird seit Oktober 2026 nicht mehr gepflegt).
+      <code>install.sh</code> prüft das und meldet eine zu alte Version.</li>
+  <li><b>Intern:</b> Neues Modul <code>anzeiger/i18n.py</code>; der Code verwendet nur noch
+      Schlüssel wie <code>app.go</code>. Die Knöpfe auf <code>about:bookmarks</code> werden
+      jetzt an ihrem Namen statt an ihrer Beschriftung erkannt, damit sie in jeder Sprache
+      funktionieren. Neue Tests prüfen, dass alle Sprachdateien dieselben Schlüssel und
+      Platzhalter haben und jede eingebaute Seite in jeder Sprache erzeugt werden kann.</li>
+</ul>
+
 <h2 id="v0.8.0">0.8.0 – 12.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Ordner für Lesezeichen.</b> Auf <code>about:bookmarks</code> lassen sich im

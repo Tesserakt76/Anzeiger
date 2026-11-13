@@ -8,6 +8,7 @@ import tkinter.font as tkfont
 from collections.abc import Callable
 from tkinter import ttk
 
+from .i18n import t
 from .layout import (BASE_SIZE, TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
                      MarkerOp, Page, RuleOp, Style, TextOp)
 
@@ -321,8 +322,8 @@ class PageView(ttk.Frame):
                 number = len(self.images)
                 self.images.append((number, op))
                 note = image_note(op)
-                label = f"[Bild: {op.alt}]" if op.alt else "[Bild]"
-                message = note or f"Bild wird geladen: {op.src}"
+                label = t("image.placeholder_alt", alt=op.alt) if op.alt else t("image.placeholder")
+                message = note or t("image.loading", url=op.src)
                 tags = self._tags(op.style) + ("dim", f"img:{number}",
                                                self._info_tag(f"img:{number}", message))
                 batch.extend((label, tags))
@@ -427,7 +428,7 @@ class PageView(ttk.Frame):
             return ttk.Button(text, text=op.label, command=lambda: self.reset_form(op.form))
         if kind == "file":
             field.entries = lambda _s: [(op.name, "")] if op.name else []
-            button = ttk.Button(text, text="Datei wählen …")
+            button = ttk.Button(text, text=t("form.choose_file"))
             button.state(["disabled"])
             return button
         if kind == "select":
@@ -450,7 +451,7 @@ class PageView(ttk.Frame):
             field.reset = reset
             return box
         # type="button" (nur mit JavaScript sinnvoll)
-        button = ttk.Button(text, text=op.label or "Knopf")
+        button = ttk.Button(text, text=op.label or t("form.button"))
         button.state(["disabled"])
         return button
 
@@ -597,7 +598,7 @@ class PageView(ttk.Frame):
             elif tag.startswith("toggle:"):
                 url = tag
                 kind = self._fold_kinds.get(tag.split(":", 1)[1])
-                info = "Liste ein- oder ausklappen" if kind == "list" else "Unterliste ein- oder ausklappen"
+                info = t("layout.toggle_list") if kind == "list" else t("layout.toggle_sublist")
             elif tag in self._infos:
                 info = self._infos[tag]
         return url, info

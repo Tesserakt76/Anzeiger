@@ -19,7 +19,7 @@ class PagesTest(unittest.TestCase):
 
     def test_start_page_links_changelog(self):
         page = render_html(pages.internal_page(pages.HOME_URL), pages.HOME_URL)
-        self.assertIn(pages.CHANGELOG_URL, pages.START_PAGE)
+        self.assertIn(pages.CHANGELOG_URL, pages.start_page())
         self.assertEqual(page.title, "Anzeiger")
 
     def test_changelog_documents_current_version(self):
@@ -44,7 +44,7 @@ class NotesTest(unittest.TestCase):
         area = next(op for op in page.ops if getattr(op, "kind", None) == "textarea")
         self.assertEqual((area.name, area.value), ("text", text))
         self.assertEqual(page.forms[area.form].action, pages.NOTES_URL)
-        self.assertIn(pages.NOTES_URL, pages.START_PAGE)
+        self.assertIn(pages.NOTES_URL, pages.start_page())
 
     def test_file(self):
         with tempfile.TemporaryDirectory() as tmp:

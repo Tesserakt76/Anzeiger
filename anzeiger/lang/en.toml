@@ -1,0 +1,262 @@
+# Language file for Anzeiger: English
+#
+# Layout: sections in square brackets, below them  key = "text".
+# - Words in curly braces such as {url} are placeholders that Anzeiger fills in.
+#   They must appear unchanged in the translated text (in any order).
+# - Keys ending in .one and .other are singular and plural (e.g. 1 cookie, 3 cookies).
+# - Texts for the built-in pages (about:…) may contain HTML (<b>, <code>, <br> …).
+# - Multi-line texts go between triple quotes """ … """.
+#
+# Rather than editing this file, save your changes in a file with the same name in
+# ~/.config/anzeiger/lang/. It only needs the keys you change; everything else still
+# comes from this file. To add a new language, copy this file there as e.g. fr.toml
+# and translate it.
+
+[meta]
+name = "English"
+
+[keys]
+ctrl = "Ctrl"
+shift = "Shift"
+alt = "Alt"
+
+[app]
+go = "Go"
+bookmarks_menu = "Bookmarks"
+window_title = "{title} – Anzeiger"
+new_tab = "New tab"
+loading_tab = "Loading …"
+only_http = "Only HTTP and HTTPS are supported: {url}"
+loading = "Loading {url} …"
+sending = "Sending form to {url} …"
+done = "Done"
+cancelled = "Stopped"
+opened_in_new_tab = "Opened in new tab: {url}"
+no_closed_tab = "There is no closed tab to restore."
+unknown_action = "Unknown action."
+unsupported_type = "Content type “{type}” is not supported."
+
+[tab_menu]
+reload = "Reload"
+close = "Close tab"
+close_others = "Close other tabs"
+new = "New tab"
+reopen = "Reopen closed tab"
+
+[zoom]
+larger = "Zoom in"
+smaller = "Zoom out"
+original = "Actual size"
+level = "{zoom} %"
+status = "Zoom: {zoom} %"
+
+[form]
+no_form = "This field does not belong to a form."
+internal_rejected = "Form rejected: the target is a built-in page."
+unsupported = "Form not sent – only HTTP and HTTPS are supported: {url}"
+insecure_title = "Send unencrypted?"
+insecure_question = """The form data would be sent unencrypted (HTTP) to:
+{url}
+
+Others could read it. Send anyway?"""
+cancelled = "Sending cancelled."
+submit = "Submit"
+reset = "Reset"
+image_button = "Image button"
+button = "Button"
+choose_file = "Choose file …"
+
+[layout]
+redirect = "Redirect to: "
+frame = "[Frame: {url}]"
+list.one = "List ({count} item)"
+list.other = "List ({count} items)"
+toggle_list = "Expand or collapse list"
+toggle_sublist = "Expand or collapse sublist"
+
+[image]
+placeholder = "[Image]"
+placeholder_alt = "[Image: {alt}]"
+table = "[Image]"
+no_address = "Image without address"
+foreign = "Image from another server – not loaded: {url}"
+loading = "Loading image: {url}"
+failed = "Image not loaded ({error}): {url}"
+cannot_show = "Cannot display image: {error}"
+unsupported_format = "not a supported image format (PNG, JPEG, GIF, BMP, WebP)"
+too_large = "image too large ({width}×{height})"
+broken = "image damaged: {error}"
+page_info = "{format}, {width}×{height} pixels"
+page_scaled = " – scaled down to {width}×{height}"
+
+[net]
+redirect_unsupported = "Redirect to an unsupported protocol: {url}"
+only_http = "Only HTTP and HTTPS are supported."
+connection_failed = "Connection failed: {error}"
+read_failed = "Error while reading: {error}"
+too_large = "Response too large (over {mb} MB)."
+unpack_failed = "Cannot decompress response: {error}"
+unpacked_too_large = "Decompressed response too large."
+
+[bookmarks]
+root = "Bookmarks"
+unnamed_folder = "(unnamed folder)"
+empty = "(empty)"
+add = "Bookmark this page"
+remove = "Remove bookmark"
+manage = "Manage bookmarks"
+more = "… more under “Manage bookmarks”"
+only_web = "Only web pages (HTTP/HTTPS) can be bookmarked."
+saved = "Bookmark saved: {title}"
+remove_title = "Remove bookmark?"
+remove_question = """Remove the bookmark for
+{url}
+?"""
+removed = "Bookmark removed."
+save_failed = "Could not save bookmark: {error}"
+unreadable = "Cannot read bookmarks file: {error}"
+gone = "Entry not found – the file has been changed in the meantime."
+folder_name_missing = "Please enter a name for the new folder."
+folder_created = "Folder “{title}” created."
+target_missing = "The target folder was not found."
+into_itself = "A folder cannot be moved into itself."
+name_empty = "The name must not be empty."
+renamed = "Renamed."
+moved = "Moved."
+entry_removed = "Removed."
+nothing_removed = "Nothing removed."
+remove_folder_title = "Remove folder?"
+remove_folder_question = "The folder “{title}” is not empty ({bookmarks}). Remove it with everything in it?"
+list_failed = "Could not save bookmarks: {error}"
+count.one = "{count} bookmark"
+count.other = "{count} bookmarks"
+folders.one = " in {count} folder"
+folders.other = " in {count} folders"
+
+[notes]
+saved = "Notes saved."
+save_failed = "Could not save notes: {error}"
+unreadable = "Cannot read notes: {error}"
+dialog_title = "Notes"
+
+[config]
+saved = "Settings saved."
+save_failed = "Settings only apply until you quit – saving failed: {error}"
+cookies_cleared = "All cookies have been deleted."
+
+# -- Built-in pages (HTML allowed) ------------------------------------------------
+
+[page]
+back_home = "Back to the start page"
+
+[page.start]
+tagline = "A simple browser that shows text only."
+protocols = "Only <b>HTTP</b> and <b>HTTPS</b> are supported."
+no_css = "No CSS, no JavaScript, no popups."
+images = """Images are only loaded if they are on the same server as the page (same domain, subdomains included)
+and in PNG, JPEG, GIF, BMP or WebP format."""
+changelog = "Change log"
+changelog_about = "what changed in which version (in German)."
+bookmarks = "Bookmarks"
+bookmarks_about = "saved pages in folders, compatible with Chrome and Firefox."
+notes = "Notes"
+notes_about = "a simple notepad that is saved permanently."
+config = "Settings"
+config_about = "language, cookies, lists expanded or collapsed."
+shortcuts = "Keyboard shortcuts"
+key = "Key"
+effect = "Effect"
+
+# Shortcut table on the start page: one row each [key, effect]
+[page.start.rows]
+address = ["Ctrl+L", "Select the address bar"]
+back_forward = ["Alt+Left / Alt+Right", "Back / Forward"]
+home = ["Alt+Home", "Start page"]
+bookmark = ["Ctrl+D", "Bookmark the current page or remove its bookmark"]
+manage = ["Ctrl+Shift+O", "Manage bookmarks"]
+zoom = ["Ctrl+Plus / Ctrl+Minus, Ctrl+mouse wheel", "Zoom in / out (magnifier)"]
+zoom_reset = ["Ctrl+0", "Actual size (100 %)"]
+notes = ["Ctrl+S", "Save notes (on <code>about:notes</code>)"]
+new_tab = ["Ctrl+T / +", "New tab"]
+close_tab = ["Ctrl+W, middle-click on the tab", "Close tab"]
+reopen_tab = ["Ctrl+Shift+T", "Reopen closed tab"]
+cycle_tabs = ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous tab (also Ctrl+Page Down / Ctrl+Page Up)"]
+select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Tab number 1 to 8, last tab"]
+link_new_tab = ["Middle-click or Ctrl+click on a link", "Open link in a new background tab"]
+submit = ["Enter in a text field", "Submit form"]
+reload = ["F5", "Reload"]
+stop = ["Esc", "Stop loading"]
+
+[page.changelog]
+# Shown above the change log, which is only available in German.
+note = "<p><i>The change log is only available in German.</i></p>"
+
+[page.config]
+title = "Settings"
+language = "Language"
+language_auto = "Automatic (system language: {name})"
+language_help = """Applies immediately to buttons and menus, and to pages the next time they load.
+The bundled language files are in <code>{builtin}</code>. Your own or modified language files
+(e.g. <code>en.toml</code> or a new language such as <code>fr.toml</code>) go into
+<code>{user}</code> and take precedence."""
+language_error = "Error in a language file: {error}"
+cookies = "Cookies"
+allow_cookies = "Allow cookies"
+cookies_help = """Cookies are only kept in memory and deleted when Anzeiger quits.
+Third-party cookies (from domains other than the visited page) are never accepted.
+Turning cookies off deletes all stored cookies immediately."""
+lists = "Lists"
+lists_collapsed = "Show whole lists collapsed"
+sublists_collapsed = "Show sublists collapsed"
+lists_help = """Applies to pages loaded after saving. Clicking ▸ or ▾ expands or collapses
+a list at any time."""
+save = "Save"
+stored_cookies = "Stored cookies"
+cookies_off = "Cookies are turned off."
+no_cookies = "No cookies are stored at the moment."
+cookie_summary = "{cookies} from {domains}:"
+cookie_count.one = "{count} cookie"
+cookie_count.other = "{count} cookies"
+domain_count.one = "{count} domain"
+domain_count.other = "{count} domains"
+clear_cookies = "Delete all cookies"
+stored_in = "The settings are saved permanently in <code>{path}</code>."
+
+[page.bookmarks]
+title = "Bookmarks"
+summary = "{bookmarks}{folders}."
+none_yet = """No bookmarks yet. The star ☆ next to the address bar or
+<b>Ctrl+D</b> saves the current page."""
+edit = "Edit"
+done = "Done"
+new_folder = "New folder"
+# {name}: text field, {folder}: choice of parent folder, {button}: button
+new_folder_form = "Name: {name} in {folder} {button}"
+create_folder = "Create folder"
+edit_help = """“Move” puts a bookmark or a folder with all its contents at the end
+of the chosen folder. “Remove” on a folder also deletes everything
+inside it."""
+all = "All bookmarks"
+rename = "Rename"
+remove = "Remove"
+move = "Move"
+empty = "(empty)"
+file = "File"
+file_location = "The bookmarks are stored in <code>{path}</code>."
+file_help = """The file uses the bookmark format that Chrome and Firefox write when exporting
+and read when importing (“Import bookmarks from HTML file”).
+Conversely, a file exported from Chrome or Firefox can simply be copied
+to this location. Folders, descriptions and icons are preserved."""
+
+[page.notes]
+title = "Notes"
+save = "Save"
+discard = "Discard changes"
+help = """Save with the button or <b>Ctrl+S</b>. Unsaved changes are also saved
+automatically as soon as you leave the page, close the tab or quit
+Anzeiger. “Discard changes” restores the last saved version."""
+location = "The notes are stored as plain text in <code>{path}</code>."
+
+[page.error]
+title = "Error"
+heading = "Page cannot be loaded"

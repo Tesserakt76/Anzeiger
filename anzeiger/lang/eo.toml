@@ -1,0 +1,262 @@
+# Lingvodosiero de Anzeiger: Esperanto
+#
+# Strukturo: sekcioj en rektaj krampoj, sub ili  ŝlosilo = "teksto".
+# - Vortoj en kuniklaj krampoj kiel {url} estas lokokupiloj, kiujn la Anzeiger anstataŭigas.
+#   Ili devas aperi senŝanĝe en la tradukita teksto (en ajna ordo).
+# - Ŝlosiloj kun .one kaj .other estas ununombro kaj multenombro (ekz. 1 kuketo, 3 kuketoj).
+# - Tekstoj por la enkonstruitaj paĝoj (about:…) rajtas enhavi HTML (<b>, <code>, <br> …).
+# - Plurliniaj tekstoj staras inter triobla citilo """ … """.
+#
+# Prefere ne ŝanĝu ĉi tiun dosieron, sed konservu viajn ŝanĝojn en samnoma dosiero en
+# ~/.config/anzeiger/lang/. Tie sufiĉas la ŝanĝitaj ŝlosiloj; ĉiuj aliaj plu venas el
+# ĉi tiu dosiero. Por aldoni novan lingvon, kopiu ĉi tiun dosieron tien ekz. kiel
+# fr.toml kaj traduku ĝin.
+
+[meta]
+name = "Esperanto"
+
+[keys]
+ctrl = "Ctrl"
+shift = "Shift"
+alt = "Alt"
+
+[app]
+go = "Ek"
+bookmarks_menu = "Legosignoj"
+window_title = "{title} – Anzeiger"
+new_tab = "Nova langeto"
+loading_tab = "Ŝargado …"
+only_http = "Nur HTTP kaj HTTPS estas subtenataj: {url}"
+loading = "Ŝargado de {url} …"
+sending = "Sendado de formularo al {url} …"
+done = "Preta"
+cancelled = "Haltigita"
+opened_in_new_tab = "Malfermita en nova langeto: {url}"
+no_closed_tab = "Ne estas fermita langeto por remalfermi."
+unknown_action = "Nekonata ago."
+unsupported_type = "Enhavtipo „{type}“ ne estas subtenata."
+
+[tab_menu]
+reload = "Reŝargi"
+close = "Fermi langeton"
+close_others = "Fermi aliajn langetojn"
+new = "Nova langeto"
+reopen = "Remalfermi fermitan langeton"
+
+[zoom]
+larger = "Pligrandigi"
+smaller = "Malpligrandigi"
+original = "Originala grandeco"
+level = "{zoom} %"
+status = "Grandigo: {zoom} %"
+
+[form]
+no_form = "Ĉi tiu kampo apartenas al neniu formularo."
+internal_rejected = "Formularo rifuzita: la celo estas enkonstruita paĝo."
+unsupported = "Formularo ne sendita – nur HTTP kaj HTTPS estas subtenataj: {url}"
+insecure_title = "Ĉu sendi neĉifrite?"
+insecure_question = """La formularaj datumoj estus senditaj neĉifrite (HTTP) al:
+{url}
+
+Aliaj povus legi ilin. Ĉu tamen sendi?"""
+cancelled = "Sendado nuligita."
+submit = "Sendi"
+reset = "Restarigi"
+image_button = "Bildbutono"
+button = "Butono"
+choose_file = "Elekti dosieron …"
+
+[layout]
+redirect = "Alidirekto al: "
+frame = "[Kadro: {url}]"
+list.one = "Listo ({count} ero)"
+list.other = "Listo ({count} eroj)"
+toggle_list = "Faldi aŭ malfaldi la liston"
+toggle_sublist = "Faldi aŭ malfaldi la subliston"
+
+[image]
+placeholder = "[Bildo]"
+placeholder_alt = "[Bildo: {alt}]"
+table = "[Bildo]"
+no_address = "Bildo sen adreso"
+foreign = "Bildo de alia servilo – ne ŝargita: {url}"
+loading = "Ŝargado de bildo: {url}"
+failed = "Bildo ne ŝargita ({error}): {url}"
+cannot_show = "Bildo ne montreblas: {error}"
+unsupported_format = "ne subtenata bildformato (PNG, JPEG, GIF, BMP, WebP)"
+too_large = "bildo tro granda ({width}×{height})"
+broken = "bildo difektita: {error}"
+page_info = "{format}, {width}×{height} pikseloj"
+page_scaled = " – malgrandigita al {width}×{height}"
+
+[net]
+redirect_unsupported = "Alidirekto al nesubtenata protokolo: {url}"
+only_http = "Nur HTTP kaj HTTPS estas subtenataj."
+connection_failed = "Konekto malsukcesis: {error}"
+read_failed = "Eraro dum legado: {error}"
+too_large = "Respondo tro granda (pli ol {mb} MB)."
+unpack_failed = "Respondo ne malpakeblas: {error}"
+unpacked_too_large = "Malpakita respondo tro granda."
+
+[bookmarks]
+root = "Legosignoj"
+unnamed_folder = "(sennoma dosierujo)"
+empty = "(malplena)"
+add = "Aldoni legosignon por ĉi tiu paĝo"
+remove = "Forigi legosignon"
+manage = "Administri legosignojn"
+more = "… pliaj en „Administri legosignojn“"
+only_web = "Nur retpaĝoj (HTTP/HTTPS) povas esti konservitaj kiel legosignoj."
+saved = "Legosigno konservita: {title}"
+remove_title = "Ĉu forigi legosignon?"
+remove_question = """Ĉu forigi la legosignon por
+{url}
+?"""
+removed = "Legosigno forigita."
+save_failed = "Legosigno ne konserveblis: {error}"
+unreadable = "Legosigna dosiero ne legeblas: {error}"
+gone = "Ero ne trovita – la dosiero intertempe ŝanĝiĝis."
+folder_name_missing = "Bonvolu entajpi nomon por la nova dosierujo."
+folder_created = "Dosierujo „{title}“ kreita."
+target_missing = "La cela dosierujo ne troviĝis."
+into_itself = "Dosierujo ne povas esti movita en sin mem."
+name_empty = "La nomo ne rajtas esti malplena."
+renamed = "Renomita."
+moved = "Movita."
+entry_removed = "Forigita."
+nothing_removed = "Nenio forigita."
+remove_folder_title = "Ĉu forigi dosierujon?"
+remove_folder_question = "La dosierujo „{title}“ ne estas malplena ({bookmarks}). Ĉu forigi ĝin kune kun la tuta enhavo?"
+list_failed = "Legosignoj ne konserveblis: {error}"
+count.one = "{count} legosigno"
+count.other = "{count} legosignoj"
+folders.one = " en {count} dosierujo"
+folders.other = " en {count} dosierujoj"
+
+[notes]
+saved = "Notoj konservitaj."
+save_failed = "Notoj ne konserveblis: {error}"
+unreadable = "Notoj ne legeblas: {error}"
+dialog_title = "Notoj"
+
+[config]
+saved = "Agordoj konservitaj."
+save_failed = "Agordoj validas nur ĝis la fermo – konservado malsukcesis: {error}"
+cookies_cleared = "Ĉiuj kuketoj estis forigitaj."
+
+# -- Enkonstruitaj paĝoj (HTML permesata) -----------------------------------------
+
+[page]
+back_home = "Reen al la komenca paĝo"
+
+[page.start]
+tagline = "Simpla retumilo, kiu montras nur tekston."
+protocols = "Subtenataj estas nur <b>HTTP</b> kaj <b>HTTPS</b>."
+no_css = "Neniu CSS, neniu JavaScript, neniuj ŝprucfenestroj."
+images = """Bildoj estas ŝargataj nur, se ili troviĝas sur la sama servilo kiel la paĝo (sama domajno, subdomajnoj inkluzivitaj)
+kaj estas en la formato PNG, JPEG, GIF, BMP aŭ WebP."""
+changelog = "Ŝanĝoprotokolo"
+changelog_about = "kio ŝanĝiĝis en kiu versio (germanlingve)."
+bookmarks = "Legosignoj"
+bookmarks_about = "konservitaj paĝoj en dosierujoj, kongruaj kun Chrome kaj Firefox."
+notes = "Notoj"
+notes_about = "simpla notbloko, kiu estas konservata daŭre."
+config = "Agordoj"
+config_about = "lingvo, kuketoj, listoj falditaj aŭ malfalditaj."
+shortcuts = "Klavkombinoj"
+key = "Klavo"
+effect = "Efiko"
+
+# Tabelo de klavkombinoj sur la komenca paĝo: po unu vico [klavo, efiko]
+[page.start.rows]
+address = ["Ctrl+L", "Elekti la adresbreton"]
+back_forward = ["Alt+← / Alt+→", "Malantaŭen / Antaŭen"]
+home = ["Alt+Home", "Komenca paĝo"]
+bookmark = ["Ctrl+D", "Aldoni aŭ forigi legosignon por la nuna paĝo"]
+manage = ["Ctrl+Shift+O", "Administri legosignojn"]
+zoom = ["Ctrl+Plus / Ctrl+Minus, Ctrl+musrado", "Pligrandigi / malpligrandigi (lupeo)"]
+zoom_reset = ["Ctrl+0", "Originala grandeco (100 %)"]
+notes = ["Ctrl+S", "Konservi notojn (en <code>about:notes</code>)"]
+new_tab = ["Ctrl+T / +", "Nova langeto"]
+close_tab = ["Ctrl+W, meza klako sur la langeto", "Fermi langeton"]
+reopen_tab = ["Ctrl+Shift+T", "Remalfermi fermitan langeton"]
+cycle_tabs = ["Ctrl+Tab / Ctrl+Shift+Tab", "Sekva / antaŭa langeto (ankaŭ Ctrl+PgDn / Ctrl+PgUp)"]
+select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Langeto numero 1 ĝis 8, lasta langeto"]
+link_new_tab = ["Meza klako aŭ Ctrl+klako sur ligilo", "Malfermi ligilon en nova fona langeto"]
+submit = ["Enigklavo en tekstkampo", "Sendi la formularon"]
+reload = ["F5", "Reŝargi"]
+stop = ["Esc", "Ĉesigi la ŝargadon"]
+
+[page.changelog]
+# Montrata super la ŝanĝoprotokolo, kiu ekzistas nur en la germana.
+note = "<p><i>La ŝanĝoprotokolo ekzistas nur en la germana.</i></p>"
+
+[page.config]
+title = "Agordoj"
+language = "Lingvo"
+language_auto = "Aŭtomata (sistema lingvo: {name})"
+language_help = """Validas tuj por butonoj kaj menuoj, por paĝoj ekde la sekva ŝargado.
+La liveritaj lingvodosieroj troviĝas en <code>{builtin}</code>. Propraj aŭ ŝanĝitaj lingvodosieroj
+(ekz. <code>eo.toml</code> aŭ nova lingvo kiel <code>fr.toml</code>) estu metitaj en
+<code>{user}</code> kaj havas prioritaton."""
+language_error = "Eraro en lingvodosiero: {error}"
+cookies = "Kuketoj"
+allow_cookies = "Permesi kuketojn"
+cookies_help = """Kuketoj estas tenataj nur en la memoro kaj forigataj, kiam la Anzeiger fermiĝas.
+Kuketoj de eksteraj liverantoj (de aliaj domajnoj ol la vizitata paĝo) neniam estas akceptataj.
+Malŝalto tuj forigas ĉiujn konservitajn kuketojn."""
+lists = "Listoj"
+lists_collapsed = "Montri tutajn listojn falditaj"
+sublists_collapsed = "Montri sublistojn falditaj"
+lists_help = """Validas por paĝoj ŝargitaj post la konservado. Klako sur ▸ aŭ ▾ iam ajn faldas aŭ
+malfaldas liston."""
+save = "Konservi"
+stored_cookies = "Konservitaj kuketoj"
+cookies_off = "Kuketoj estas malŝaltitaj."
+no_cookies = "Nun neniuj kuketoj estas konservitaj."
+cookie_summary = "{cookies} de {domains}:"
+cookie_count.one = "{count} kuketo"
+cookie_count.other = "{count} kuketoj"
+domain_count.one = "{count} domajno"
+domain_count.other = "{count} domajnoj"
+clear_cookies = "Forigi ĉiujn kuketojn"
+stored_in = "La agordoj estas daŭre konservataj en <code>{path}</code>."
+
+[page.bookmarks]
+title = "Legosignoj"
+summary = "{bookmarks}{folders}."
+none_yet = """Ankoraŭ neniuj legosignoj. La stelo ☆ apud la adresbreto aŭ
+<b>Ctrl+D</b> konservas la nunan paĝon."""
+edit = "Redakti"
+done = "Preta"
+new_folder = "Nova dosierujo"
+# {name}: tekstkampo, {folder}: elekto de la supera dosierujo, {button}: butono
+new_folder_form = "Nomo: {name} en {folder} {button}"
+create_folder = "Krei dosierujon"
+edit_help = """Per „Movi“ legosigno aŭ dosierujo kun la tuta enhavo iras al la fino
+de la elektita dosierujo. „Forigi“ ĉe dosierujo forigas ankaŭ ĉion,
+kio estas en ĝi."""
+all = "Ĉiuj legosignoj"
+rename = "Renomi"
+remove = "Forigi"
+move = "Movi"
+empty = "(malplena)"
+file = "Dosiero"
+file_location = "La legosignoj troviĝas en <code>{path}</code>."
+file_help = """La dosiero havas la legosignan formaton, kiun Chrome kaj Firefox skribas dum eksportado
+kaj legas dum importado („Importi legosignojn el HTML-dosiero“).
+Inverse, dosiero eksportita el Chrome aŭ Firefox povas simple esti kopiita
+al ĉi tiu loko. Dosierujoj, priskriboj kaj piktogramoj restas konservitaj."""
+
+[page.notes]
+title = "Notoj"
+save = "Konservi"
+discard = "Forĵeti ŝanĝojn"
+help = """Konservu per la butono aŭ <b>Ctrl+S</b>. Nekonservitaj ŝanĝoj krome estas
+aŭtomate konservataj, kiam oni forlasas la paĝon, fermas la langeton aŭ fermas
+la Anzeiger. „Forĵeti ŝanĝojn“ restarigas la laste konservitan staton."""
+location = "La notoj troviĝas kiel simpla teksto en <code>{path}</code>."
+
+[page.error]
+title = "Eraro"
+heading = "Paĝo ne ŝargeblas"

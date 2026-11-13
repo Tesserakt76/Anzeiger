@@ -14,12 +14,14 @@ from dataclasses import dataclass
 from urllib.parse import quote, urlsplit, urlunsplit
 
 from . import __version__
+from .i18n import t
 
 TIMEOUT = 20
 MAX_PAGE_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 USER_AGENT = f"Anzeiger/{__version__} (einfacher Textbrowser)"
 ALLOWED_SCHEMES = ("http", "https")
+_accept_language = "de,en;q=0.7"
 
 
 class FetchError(Exception):
@@ -41,7 +43,7 @@ class _RedirectHandler(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if urlsplit(newurl).scheme.lower() not in ALLOWED_SCHEMES:
-            raise FetchError(f"Weiterleitung auf nicht unterstütztes Protokoll: {newurl}")
+            raise FetchError(t("net.redirect_unsupported", url=newurl))
         new = super().redirect_request(req, fp, code, msg, headers, newurl)
         if new is not None:
             # Nachgeladene Inhalte bleiben auch nach einer Weiterleitung nachgeladen.
@@ -88,6 +90,12 @@ def set_cookies_enabled(enabled: bool) -> None:
 
 def clear_cookies() -> None:
     COOKIES.clear()
+
+
+def set_accept_language(code: str) -> None:
+    """Bevorzugte Sprache der Webseiten (Accept-Language), mit Englisch als zweiter Wahl."""
+    global _accept_language
+    _accept_language = "en" if code == "en" else f"{code},en;q=0.7"
 
 
 def cookie_hosts() -> dict[str, int]:
@@ -202,12 +210,12 @@ def fetch(url: str, accept: str = "text/html,application/xhtml+xml,text/plain;q=
     für die ein Inhalt nachgeladen wird (Drittanbieter-Cookies).
     """
     if not is_supported(url):
-        raise FetchError("Nur HTTP und HTTPS werden unterstützt.")
+        raise FetchError(t("net.only_http"))
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": accept,
         "Accept-Encoding": "gzip, deflate",
-        "Accept-Language": "de,en;q=0.7",
+        "Accept-Language": _accept_language,
     }
     if data is not None:
         headers["Content-Type"] = content_type or "application/x-www-form-urlencoded"
@@ -221,16 +229,16 @@ def fetch(url: str, accept: str = "text/html,application/xhtml+xml,text/plain;q=
     except urllib.error.HTTPError as error:
         response = error
     except urllib.error.URLError as error:
-        raise FetchError(f"Verbindung fehlgeschlagen: {error.reason}") from error
+        raise FetchError(t("net.connection_failed", error=error.reason)) from error
     except (OSError, ValueError) as error:
-        raise FetchError(f"Verbindung fehlgeschlagen: {error}") from error
+        raise FetchError(t("net.connection_failed", error=error)) from error
 
     with response:
         headers = response.headers
         try:
             body = _read_limited(response, max_bytes)
         except OSError as error:
-            raise FetchError(f"Fehler beim Lesen: {error}") from error
+            raise FetchError(t("net.read_failed", error=error)) from error
         body = _decode_content(body, (headers.get("Content-Encoding") or "").lower(), max_bytes)
         return Response(
             url=response.geturl(),
@@ -248,7 +256,7 @@ def _read_limited(response, max_bytes: int) -> bytes:
     while chunk := response.read(64 * 1024):
         total += len(chunk)
         if total > max_bytes:
-            raise FetchError(f"Antwort zu groß (über {max_bytes // (1024 * 1024)} MB).")
+            raise FetchError(t("net.too_large", mb=max_bytes // (1024 * 1024)))
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -264,9 +272,9 @@ def _decode_content(body: bytes, encoding: str, max_bytes: int) -> bytes:
     try:
         data = decompressor.decompress(body, max_bytes + 1)
     except zlib.error as error:
-        raise FetchError(f"Antwort nicht entpackbar: {error}") from error
+        raise FetchError(t("net.unpack_failed", error=error)) from error
     if len(data) > max_bytes:
-        raise FetchError("Entpackte Antwort zu groß.")
+        raise FetchError(t("net.unpacked_too_large"))
     return data
 
 

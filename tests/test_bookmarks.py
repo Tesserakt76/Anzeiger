@@ -229,7 +229,7 @@ class PageTest(unittest.TestCase):
     def test_empty_and_start_page(self):
         source = pages.internal_page(pages.BOOKMARKS_URL, pages.PageContext())
         self.assertIn("Noch keine Lesezeichen", source)
-        self.assertIn(pages.BOOKMARKS_URL, pages.START_PAGE)
+        self.assertIn(pages.BOOKMARKS_URL, pages.start_page())
         self.assertTrue(pages.is_internal("about:bookmarks"))
 
 

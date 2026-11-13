@@ -23,6 +23,10 @@ if [ -z "$PYTHON" ]; then
     echo "Fehler: python3 nicht gefunden." >&2
     exit 1
 fi
+if ! "$PYTHON" -I -c 'import tomllib' 2>/dev/null; then
+    echo "Fehler: $PYTHON ist zu alt, nötig ist Python 3.11 oder neuer." >&2
+    exit 1
+fi
 if ! "$PYTHON" -I -c 'import tkinter, PIL' 2>/dev/null; then
     echo "Fehler: tkinter oder Pillow fehlt für $PYTHON." >&2
     echo "Unter Debian/Ubuntu: sudo apt install python3-tk python3-pil" >&2

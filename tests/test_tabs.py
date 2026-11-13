@@ -4,7 +4,7 @@ import tkinter as tk
 import unittest
 from unittest import mock
 
-from anzeiger import notes
+from anzeiger import i18n, notes
 from anzeiger.pages import BOOKMARKS_URL, CONFIG_URL, HOME_URL, NOTES_URL
 
 
@@ -13,9 +13,11 @@ class TabsTest(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        patcher = mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": self.tmp.name})
+        # Deutsch als Systemsprache, damit die Meldungen unabhängig vom Rechner gleich sind
+        patcher = mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": self.tmp.name, "LANGUAGE": "de"})
         patcher.start()
         self.addCleanup(patcher.stop)
+        self.addCleanup(i18n.set_language, i18n.SOURCE)
         try:
             self.root = tk.Tk()
         except tk.TclError:
@@ -165,6 +167,24 @@ class TabsTest(unittest.TestCase):
         self.type_notes(tab, "Beim Schließen")
         self.app.close_tab(tab)
         self.assertEqual(notes.load(self.app.notes_path), "Beim Schließen")
+
+    def test_language_switch(self):
+        tab = self.app.tab
+        tab.navigate(CONFIG_URL)
+        self.app.config_post(tab, [("action", "save"), ("language", "eo"), ("cookies", "on")])
+        self.assertEqual(self.app.settings.language, "eo")
+        self.assertIn('"language": "eo"', self.app.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual((tab.status_text, tab.page.title), ("Agordoj konservitaj.", "Agordoj"))
+        self.assertEqual(self.app.go_button.cget("text"), "Iru")
+        self.assertEqual(self.app.zoom_menu.entrycget(0, "label"), "Pligrandigi")
+        # Lesezeichen-Knöpfe werden am Namen erkannt, nicht an der (übersetzten) Beschriftung.
+        self.app.bookmarks_post(tab, [("title", "Projektoj"), ("dest", ""), ("add-folder", "Krei dosierujon")])
+        self.assertEqual(tab.status_text, "Dosierujo „Projektoj“ kreita.")
+        self.app.bookmarks_post(tab, [("path", "0"), ("key", "Projektoj"), ("title", "Projekte"),
+                                      ("rename", "Renomi")])
+        self.assertEqual(self.app._bookmarks().children[0].title, "Projekte")
+        self.app.config_post(tab, [("action", "save"), ("language", "de")])
+        self.assertEqual(self.app.bookmark_button.cget("text"), "Lesezeichen")
 
     def test_unchanged_notes_tab_does_not_overwrite(self):
         old = self.app.tab

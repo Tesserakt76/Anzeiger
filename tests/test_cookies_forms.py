@@ -145,7 +145,7 @@ class SettingsTest(unittest.TestCase):
         self.assertIn("&lt;b&gt;.de", source)
         self.assertIn("/x/settings.json", source)
         self.assertIn('value="clear-cookies"', source)
-        self.assertIn("about:config", pages.START_PAGE)
+        self.assertIn("about:config", pages.start_page())
 
 
 if __name__ == "__main__":

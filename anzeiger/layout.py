@@ -12,6 +12,7 @@ from urllib.parse import urljoin
 
 from .dom import Element, parse_html
 from .forms import FormInfo, normalize_enctype, normalize_method
+from .i18n import t, tn
 
 BASE_SIZE = 11
 HEADING_SIZES = {"h1": 22, "h2": 18, "h3": 15, "h4": 13, "h5": 11, "h6": 10}
@@ -200,7 +201,7 @@ def render_html(source: str, url: str, columns: int = 100) -> Page:
 
     refresh = _meta_refresh(root, base)
     if refresh:
-        renderer.inline("Weiterleitung zu: ", replace(PLAIN, dim=True))
+        renderer.inline(t("layout.redirect"), replace(PLAIN, dim=True))
         renderer.inline(refresh, replace(PLAIN, href=refresh))
         renderer.block_break(2)
 
@@ -234,6 +235,11 @@ def _meta_refresh(root: Element, base: str) -> str | None:
 def _int_attr(el: Element, name: str) -> int | None:
     match = re.match(r"\s*(\d+)", el.get(name) or "")
     return int(match.group(1)) if match else None
+
+
+def _button_label(kind: str) -> str:
+    """Beschriftung eines Knopfs ohne eigenen Text."""
+    return {"submit": t("form.submit"), "reset": t("form.reset")}.get(kind, "")
 
 
 def _roman(n: int) -> str:
@@ -513,7 +519,7 @@ class Renderer:
         src = (el.get("src") or "").strip()
         if src:
             url = urljoin(self.base_url, src)
-            self.inline(f"[Rahmen: {url}]", replace(style, href=url))
+            self.inline(t("layout.frame", url=url), replace(style, href=url))
 
     # -- Formulare -------------------------------------------------------------
 
@@ -561,8 +567,8 @@ class Renderer:
         if kind in ("checkbox", "radio"):
             self._field(el, style, kind=kind, value=value or "on", checked="checked" in el.attrs)
         elif kind in BUTTON_KINDS:
-            default = {"submit": "Absenden", "reset": "Zurücksetzen"}.get(kind, "")
-            label = (el.get("alt") or "Bild-Knopf") if kind == "image" else (value or default)
+            default = _button_label(kind)
+            label = (el.get("alt") or t("form.image_button")) if kind == "image" else (value or default)
             self._field(el, style, kind=kind, value=value, label=label)
         elif kind in ("hidden", "file"):
             self._field(el, style, kind=kind, value=value if kind == "hidden" else "")
@@ -575,7 +581,7 @@ class Renderer:
         kind = (el.get("type") or "submit").strip().lower()
         if kind not in ("submit", "reset", "button"):
             kind = "submit"
-        label = _WS.sub(" ", el.text()).strip() or {"submit": "Absenden", "reset": "Zurücksetzen"}.get(kind, "")
+        label = _WS.sub(" ", el.text()).strip() or _button_label(kind)
         self._field(el, style, kind=kind, value=el.get("value") or "", label=label)
 
     def _tag_select(self, el: Element, style: Style) -> None:
@@ -632,7 +638,7 @@ class Renderer:
             fold, kind = self.folds, "list"
             self.folds += 1
             self._flush()
-            label = "Liste (1 Eintrag)" if count == 1 else f"Liste ({count} Einträge)"
+            label = tn("layout.list", count)
             self.ops.append(ListToggleOp(fold, label, replace(style, href=None, info=None, dim=True,
                                                               bold=False, italic=False)))
             self.trailing_nl = 1
@@ -742,7 +748,7 @@ class Renderer:
                 text = op.text + (" " if isinstance(op, MarkerOp) else "")
                 runs.append((text, op.style))
             elif isinstance(op, ImageOp):
-                runs.append((f"[{op.alt or 'Bild'}]", replace(op.style, dim=True)))
+                runs.append((f"[{op.alt}]" if op.alt else t("image.table"), replace(op.style, dim=True)))
             elif isinstance(op, RuleOp):
                 runs.append(("—", op.style))
         lines: list[list[tuple[str, Style]]] = [[]]

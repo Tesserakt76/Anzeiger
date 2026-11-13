@@ -11,6 +11,8 @@ import io
 
 from PIL import Image
 
+from .i18n import t
+
 ALLOWED_FORMATS = ("PNG", "JPEG", "GIF", "BMP", "WEBP")
 # Inhaltstypen, die als eigene Seite angezeigt werden (direkt aufgerufene Bildadresse)
 CONTENT_TYPES = ("image/png", "image/jpeg", "image/pjpeg", "image/gif", "image/bmp",
@@ -49,7 +51,7 @@ def probe(data: bytes) -> tuple[str, tuple[int, int]]:
     try:
         image = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)
     except Exception as error:
-        raise ImageError("kein unterstütztes Bildformat (PNG, JPEG, GIF, BMP, WebP)") from error
+        raise ImageError(t("image.unsupported_format")) from error
     return image.format or "?", image.size
 
 
@@ -59,13 +61,13 @@ def decode_image(data: bytes, width: int | None = None, height: int | None = Non
     try:
         image = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)
     except Exception as error:  # Pillow wirft je nach Fehler verschiedene Typen
-        raise ImageError("kein unterstütztes Bildformat (PNG, JPEG, GIF, BMP, WebP)") from error
+        raise ImageError(t("image.unsupported_format")) from error
     if image.width * image.height > MAX_PIXELS:
-        raise ImageError(f"Bild zu groß ({image.width}×{image.height})")
+        raise ImageError(t("image.too_large", width=image.width, height=image.height))
     try:
         image.load()
     except Exception as error:
-        raise ImageError(f"Bild beschädigt: {error}") from error
+        raise ImageError(t("image.broken", error=error)) from error
     has_alpha = image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info
     image = image.convert("RGBA" if has_alpha else "RGB")
     size = target_size(image.size, width, height, max_width)

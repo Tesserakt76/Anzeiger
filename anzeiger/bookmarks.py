@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
 
+from .i18n import t
 from .settings import default_path as _settings_path
 
 HEADER = """<!DOCTYPE NETSCAPE-Bookmark-file-1>
@@ -89,7 +90,7 @@ class Folder:
 class _Parser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.root = Folder("Lesezeichen")
+        self.root = Folder("")
         self.stack: list[Folder] = []
         self.pending: Folder | None = None      # Ordner aus <H3>, wartet auf sein <DL>
         self.capture: Bookmark | Folder | None = None
@@ -175,7 +176,7 @@ def load(path: Path) -> Folder:
     try:
         source = path.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
-        return Folder("Lesezeichen")
+        return Folder("")
     return parse(source)
 
 
@@ -301,9 +302,9 @@ def move_at(path: Path, where: tuple[int, ...], key: str, dest: tuple[int, ...])
         return False
     target = root.node(dest)
     if not isinstance(target, Folder):
-        raise ValueError("Der Zielordner wurde nicht gefunden.")
+        raise ValueError(t("bookmarks.target_missing"))
     if dest[:len(where)] == where:
-        raise ValueError("Ein Ordner kann nicht in sich selbst verschoben werden.")
+        raise ValueError(t("bookmarks.into_itself"))
     root.remove(where)     # `target` ist ein Objekt, verschobene Indizes stören also nicht
     target.children.append(node)
     save(root, path)
@@ -312,11 +313,11 @@ def move_at(path: Path, where: tuple[int, ...], key: str, dest: tuple[int, ...])
 
 def folders(root: Folder) -> list[tuple[tuple[int, ...], str]]:
     """Alle Ordner mit Pfad und lesbarem Namen, die Wurzel zuerst (für Auswahllisten)."""
-    result = [((), root.title or "Lesezeichen")]
+    result = [((), root.title or t("bookmarks.root"))]
     names: dict[tuple[int, ...], str] = {}
     for where, node in root.walk():
         if isinstance(node, Folder):
-            name = node.title or "(Ordner ohne Namen)"
+            name = node.title or t("bookmarks.unnamed_folder")
             names[where] = f"{names[where[:-1]]} › {name}" if where[:-1] in names else name
             result.append((where, names[where]))
     return result

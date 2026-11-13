@@ -1,5 +1,7 @@
 # Anzeiger
 
+**Deutsch** · [English](README.en.md) · [Esperanto](README.eo.md)
+
 Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstellt.
 
 - Nur **HTTP** und **HTTPS** (auch bei Weiterleitungen).
@@ -33,10 +35,38 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Notizen auf `about:notes`: ein einfacher Notizblock, gespeichert mit Knopf oder Strg+S und
   automatisch beim Verlassen der Seite, in `~/.config/anzeiger/notes.txt`.
 - Cookies nur im Arbeitsspeicher, keine Drittanbieter-Cookies; abschalt- und löschbar.
+- Sprachen: Deutsch, Englisch und Esperanto, wählbar auf `about:config` (Standard: Systemsprache).
+  Alle Texte stehen in editierbaren Sprachdateien, siehe [Sprachen und Übersetzungen](#sprachen-und-übersetzungen).
 - Eingebaute Seiten: Startseite `about:start` (Knopf ⌂), Änderungsprotokoll
   `about:changelog`, Lesezeichen `about:bookmarks`, Notizen `about:notes` und Einstellungen `about:config`,
   auf der Startseite verlinkt.
   Die Einstellungen liegen in `~/.config/anzeiger/settings.json`.
+
+## Sprachen und Übersetzungen
+
+Alle Texte der Oberfläche und der eingebauten Seiten stehen in Sprachdateien im
+[TOML-Format](https://toml.io/) unter `anzeiger/lang/`: `de.toml` (Deutsch, vollständige
+Referenz), `en.toml` (Englisch) und `eo.toml` (Esperanto). Der Code verwendet nur Schlüssel
+wie `app.go`, die beim Anzeigen durch den Text der gewählten Sprache ersetzt werden.
+
+```toml
+[app]
+go = "Los"
+loading = "Lade {url} …"       # {url} ist ein Platzhalter
+```
+
+- Die Sprache wird auf `about:config` gewählt; „Automatisch“ nimmt die Systemsprache
+  (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, `LANG`) und sonst Englisch. Knöpfe und Menüs wechseln
+  sofort, Seiten beim nächsten Laden.
+- Eigene Änderungen gehören nach `~/.config/anzeiger/lang/`: Eine Datei gleichen Namens (z.B.
+  `de.toml`) muss nur die geänderten Schlüssel enthalten und hat Vorrang vor der mitgelieferten.
+  So bleiben die Änderungen auch nach einer Aktualisierung erhalten.
+- Neue Sprache: `de.toml` oder `en.toml` z.B. als `fr.toml` in diesen Ordner kopieren,
+  `[meta] name` setzen und übersetzen. Sie erscheint dann in der Auswahl auf `about:config`.
+  Fehlende Texte werden auf Englisch, notfalls auf Deutsch angezeigt.
+- Platzhalter in `{…}` müssen erhalten bleiben; Schlüssel mit `.one`/`.other` sind Einzahl
+  und Mehrzahl. Fehler in einer Sprachdatei werden auf `about:config` gemeldet.
+- Das Änderungsprotokoll (`about:changelog`) gibt es nur auf Deutsch.
 
 ## Versionen und Änderungsprotokoll
 
@@ -45,7 +75,7 @@ Major.Minor.Patch. Jede Änderung wird in `anzeiger/changelog.html` beschrieben.
 
 ## Voraussetzungen
 
-- Python ≥ 3.10 mit tkinter (Debian/Ubuntu: Paket `python3-tk`)
+- Python ≥ 3.11 mit tkinter (Debian/Ubuntu: Paket `python3-tk`)
 - Pillow
 
 ## Starten
@@ -69,7 +99,8 @@ Danach steht „Anzeiger“ mit Zeitungssymbol im Anwendungsmenü, und jeder Ben
 `/usr/local/bin/anzeiger` (Startbefehl), `/usr/local/share/applications/` (Menüeintrag) und
 `/usr/local/share/icons/hicolor/` (Symbole); die Orte lassen sich mit `APPDIR=…` und
 `PREFIX=…` ändern. Erneutes Ausführen aktualisiert, `sudo ./uninstall.sh` entfernt alles.
-Einstellungen, Lesezeichen und Notizen bleiben pro Benutzer in `~/.config/anzeiger/`.
+Einstellungen, Lesezeichen, Notizen und eigene Sprachdateien bleiben pro Benutzer in
+`~/.config/anzeiger/`.
 
 `sudo pip install .` ist unter aktuellen Debian/Ubuntu-Versionen absichtlich gesperrt
 (PEP 668); `install.sh` braucht weder pip noch Internet.
@@ -115,6 +146,8 @@ python3 -m unittest discover -s tests
 | `anzeiger/bookmarks.py`| Lesezeichen-Datei im Netscape-Format (Chrome/Firefox)    |
 | `anzeiger/notes.py`   | Notizen in `~/.config/anzeiger/notes.txt`                  |
 | `anzeiger/settings.py`| Einstellungen in `~/.config/anzeiger/settings.json`, Zoomstufen |
+| `anzeiger/i18n.py`    | Übersetzungen: Sprachdateien lesen, Texte zu Schlüsseln liefern |
+| `anzeiger/lang/`      | Sprachdateien `de.toml`, `en.toml`, `eo.toml`              |
 | `anzeiger/changelog.html` | Änderungsprotokoll                                     |
 | `anzeiger/icons/`     | Programmsymbol (SVG, PNG 16–256 px)                        |
 | `install.sh`, `uninstall.sh`, `data/anzeiger.desktop` | systemweite Installation, Menüeintrag |

@@ -23,6 +23,7 @@ class Settings:
     lists_collapsed: bool = False      # ganze Listen beim Laden eingeklappt
     sublists_collapsed: bool = False   # Unterlisten beim Laden eingeklappt
     zoom: int = 100                    # Vergrößerung der Lupe in Prozent
+    language: str = ""                 # Kürzel der Sprachdatei, "" = Systemsprache
 
     @classmethod
     def load(cls, path: Path) -> Settings:

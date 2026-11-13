@@ -1,0 +1,263 @@
+# Sprachdatei des Anzeigers: Deutsch (Referenzsprache, vollständig)
+#
+# Aufbau: Abschnitte in eckigen Klammern, darunter  schlüssel = "Text".
+# - Wörter in geschweiften Klammern wie {url} sind Platzhalter, die der Anzeiger
+#   ersetzt. Sie müssen unverändert im übersetzten Text vorkommen (Reihenfolge beliebig).
+# - Schlüssel mit .one und .other sind Einzahl und Mehrzahl (z.B. 1 Cookie, 3 Cookies).
+# - Texte für die eingebauten Seiten (about:…) dürfen HTML enthalten (<b>, <code>, <br> …).
+# - Mehrzeilige Texte stehen zwischen dreifachen Anführungszeichen """ … """.
+#
+# Eigene Änderungen am besten nicht hier, sondern in einer Datei gleichen Namens in
+# ~/.config/anzeiger/lang/ speichern. Dort genügen die geänderten Schlüssel; alle
+# übrigen kommen weiter aus dieser Datei. Eine neue Sprache entsteht, indem man diese
+# Datei z.B. als fr.toml in den Ordner kopiert und übersetzt.
+
+[meta]
+name = "Deutsch"
+
+[keys]
+ctrl = "Strg"
+shift = "Umschalt"
+alt = "Alt"
+
+[app]
+go = "Los"
+bookmarks_menu = "Lesezeichen"
+window_title = "{title} – Anzeiger"
+new_tab = "Neuer Tab"
+loading_tab = "Lädt …"
+only_http = "Nur HTTP und HTTPS werden unterstützt: {url}"
+loading = "Lade {url} …"
+sending = "Sende Formular an {url} …"
+done = "Fertig"
+cancelled = "Abgebrochen"
+opened_in_new_tab = "In neuem Tab geöffnet: {url}"
+no_closed_tab = "Es gibt keinen geschlossenen Tab zum Wiederherstellen."
+unknown_action = "Unbekannte Aktion."
+unsupported_type = "Inhaltstyp „{type}“ wird nicht unterstützt."
+
+[tab_menu]
+reload = "Neu laden"
+close = "Tab schließen"
+close_others = "Andere Tabs schließen"
+new = "Neuer Tab"
+reopen = "Geschlossenen Tab wieder öffnen"
+
+[zoom]
+larger = "Vergrößern"
+smaller = "Verkleinern"
+original = "Originalgröße"
+level = "{zoom} %"
+status = "Vergrößerung: {zoom} %"
+
+[form]
+no_form = "Dieses Feld gehört zu keinem Formular."
+internal_rejected = "Formular abgelehnt: Ziel ist eine eingebaute Seite."
+unsupported = "Formular nicht abgeschickt – nur HTTP und HTTPS werden unterstützt: {url}"
+insecure_title = "Unverschlüsselt senden?"
+insecure_question = """Die Formulardaten würden unverschlüsselt (HTTP) gesendet an:
+{url}
+
+Andere könnten sie mitlesen. Trotzdem senden?"""
+cancelled = "Abschicken abgebrochen."
+submit = "Absenden"
+reset = "Zurücksetzen"
+image_button = "Bild-Knopf"
+button = "Knopf"
+choose_file = "Datei wählen …"
+
+[layout]
+redirect = "Weiterleitung zu: "
+frame = "[Rahmen: {url}]"
+list.one = "Liste ({count} Eintrag)"
+list.other = "Liste ({count} Einträge)"
+toggle_list = "Liste ein- oder ausklappen"
+toggle_sublist = "Unterliste ein- oder ausklappen"
+
+[image]
+placeholder = "[Bild]"
+placeholder_alt = "[Bild: {alt}]"
+table = "[Bild]"
+no_address = "Bild ohne Adresse"
+foreign = "Bild von fremdem Server – nicht geladen: {url}"
+loading = "Bild wird geladen: {url}"
+failed = "Bild nicht geladen ({error}): {url}"
+cannot_show = "Bild kann nicht angezeigt werden: {error}"
+unsupported_format = "kein unterstütztes Bildformat (PNG, JPEG, GIF, BMP, WebP)"
+too_large = "Bild zu groß ({width}×{height})"
+broken = "Bild beschädigt: {error}"
+page_info = "{format}, {width}×{height} Pixel"
+page_scaled = " – verkleinert auf {width}×{height}"
+
+[net]
+redirect_unsupported = "Weiterleitung auf nicht unterstütztes Protokoll: {url}"
+only_http = "Nur HTTP und HTTPS werden unterstützt."
+connection_failed = "Verbindung fehlgeschlagen: {error}"
+read_failed = "Fehler beim Lesen: {error}"
+too_large = "Antwort zu groß (über {mb} MB)."
+unpack_failed = "Antwort nicht entpackbar: {error}"
+unpacked_too_large = "Entpackte Antwort zu groß."
+
+[bookmarks]
+root = "Lesezeichen"
+unnamed_folder = "(Ordner ohne Namen)"
+empty = "(leer)"
+add = "Lesezeichen für diese Seite"
+remove = "Lesezeichen entfernen"
+manage = "Lesezeichen verwalten"
+more = "… weitere unter „Lesezeichen verwalten“"
+only_web = "Nur Webseiten (HTTP/HTTPS) können als Lesezeichen gespeichert werden."
+saved = "Lesezeichen gespeichert: {title}"
+remove_title = "Lesezeichen entfernen?"
+remove_question = """Das Lesezeichen für
+{url}
+entfernen?"""
+removed = "Lesezeichen entfernt."
+save_failed = "Lesezeichen konnte nicht gespeichert werden: {error}"
+unreadable = "Lesezeichen-Datei nicht lesbar: {error}"
+gone = "Eintrag nicht gefunden – die Datei wurde inzwischen geändert."
+folder_name_missing = "Bitte einen Namen für den neuen Ordner eingeben."
+folder_created = "Ordner „{title}“ angelegt."
+target_missing = "Der Zielordner wurde nicht gefunden."
+into_itself = "Ein Ordner kann nicht in sich selbst verschoben werden."
+name_empty = "Der Name darf nicht leer sein."
+renamed = "Umbenannt."
+moved = "Verschoben."
+entry_removed = "Entfernt."
+nothing_removed = "Nichts entfernt."
+remove_folder_title = "Ordner entfernen?"
+remove_folder_question = "Der Ordner „{title}“ ist nicht leer ({bookmarks}). Ihn samt Inhalt entfernen?"
+list_failed = "Lesezeichen konnten nicht gespeichert werden: {error}"
+count.one = "{count} Lesezeichen"
+count.other = "{count} Lesezeichen"
+folders.one = " in {count} Ordner"
+folders.other = " in {count} Ordnern"
+
+[notes]
+saved = "Notizen gespeichert."
+save_failed = "Notizen konnten nicht gespeichert werden: {error}"
+unreadable = "Notizen nicht lesbar: {error}"
+dialog_title = "Notizen"
+
+[config]
+saved = "Einstellungen gespeichert."
+save_failed = "Einstellungen gelten nur bis zum Beenden – Speichern fehlgeschlagen: {error}"
+cookies_cleared = "Alle Cookies wurden gelöscht."
+
+# -- Eingebaute Seiten (HTML erlaubt) ---------------------------------------------
+
+[page]
+back_home = "Zurück zur Startseite"
+
+[page.start]
+tagline = "Ein einfacher Browser, der nur Text darstellt."
+protocols = "Unterstützt werden nur <b>HTTP</b> und <b>HTTPS</b>."
+no_css = "Kein CSS, kein JavaScript, keine Popups."
+images = """Bilder werden nur geladen, wenn sie auf demselben Server (gleiche Domain, Subdomains zählen mit) wie die Seite liegen
+und im Format PNG, JPEG, GIF, BMP oder WebP vorliegen."""
+changelog = "Änderungsprotokoll"
+changelog_about = "was sich in welcher Version geändert hat."
+bookmarks = "Lesezeichen"
+bookmarks_about = "gespeicherte Seiten in Ordnern, kompatibel zu Chrome und Firefox."
+notes = "Notizen"
+notes_about = "ein einfacher Notizblock, der dauerhaft gespeichert wird."
+config = "Einstellungen"
+config_about = "Sprache, Cookies, Listen ein- oder ausgeklappt."
+shortcuts = "Tastenkürzel"
+key = "Taste"
+effect = "Wirkung"
+
+# Tastenkürzel-Tabelle der Startseite: je Zeile [Taste, Wirkung]
+[page.start.rows]
+address = ["Strg+L", "Adresszeile auswählen"]
+back_forward = ["Alt+Links / Alt+Rechts", "Zurück / Vor"]
+home = ["Alt+Pos1", "Startseite"]
+bookmark = ["Strg+D", "Lesezeichen für die aktuelle Seite setzen oder entfernen"]
+manage = ["Strg+Umschalt+O", "Lesezeichen verwalten"]
+zoom = ["Strg+Plus / Strg+Minus, Strg+Mausrad", "Größer / kleiner darstellen (Lupe)"]
+zoom_reset = ["Strg+0", "Originalgröße (100 %)"]
+notes = ["Strg+S", "Notizen speichern (auf <code>about:notes</code>)"]
+new_tab = ["Strg+T / +", "Neuer Tab"]
+close_tab = ["Strg+W, Mittelklick auf den Tab", "Tab schließen"]
+reopen_tab = ["Strg+Umschalt+T", "Geschlossenen Tab wieder öffnen"]
+cycle_tabs = ["Strg+Tab / Strg+Umschalt+Tab", "Nächster / vorheriger Tab (auch Strg+Bild↓ / Strg+Bild↑)"]
+select_tab = ["Strg+1 … Strg+8, Strg+9", "Tab Nummer 1 bis 8, letzter Tab"]
+link_new_tab = ["Mittelklick oder Strg+Klick auf einen Link", "Link in neuem Tab im Hintergrund öffnen"]
+submit = ["Enter in einem Textfeld", "Formular abschicken"]
+reload = ["F5", "Neu laden"]
+stop = ["Esc", "Laden abbrechen"]
+
+[page.changelog]
+# Das Änderungsprotokoll gibt es nur auf Deutsch; in anderen Sprachen steht dieser
+# Hinweis darüber. Auf Deutsch bleibt er leer.
+note = ""
+
+[page.config]
+title = "Einstellungen"
+language = "Sprache"
+language_auto = "Automatisch (Systemsprache: {name})"
+language_help = """Gilt sofort für Knöpfe und Menüs, für Seiten ab dem nächsten Laden.
+Die mitgelieferten Sprachdateien liegen in <code>{builtin}</code>. Eigene oder geänderte
+Sprachdateien (z.B. <code>de.toml</code> oder eine neue Sprache wie <code>fr.toml</code>) werden in
+<code>{user}</code> abgelegt und haben Vorrang."""
+language_error = "Fehler in einer Sprachdatei: {error}"
+cookies = "Cookies"
+allow_cookies = "Cookies zulassen"
+cookies_help = """Cookies werden nur im Arbeitsspeicher gehalten und beim Beenden des Anzeigers gelöscht.
+Cookies von Drittanbietern (anderen Domains als der besuchten Seite) werden nie angenommen.
+Beim Ausschalten werden alle gespeicherten Cookies sofort gelöscht."""
+lists = "Listen"
+lists_collapsed = "Ganze Listen eingeklappt anzeigen"
+sublists_collapsed = "Unterlisten eingeklappt anzeigen"
+lists_help = """Gilt für Seiten, die nach dem Speichern geladen werden. Ein Klick auf ▸ bzw. ▾ klappt
+eine Liste jederzeit auf oder zu."""
+save = "Speichern"
+stored_cookies = "Gespeicherte Cookies"
+cookies_off = "Cookies sind ausgeschaltet."
+no_cookies = "Zurzeit sind keine Cookies gespeichert."
+cookie_summary = "{cookies} von {domains}:"
+cookie_count.one = "{count} Cookie"
+cookie_count.other = "{count} Cookies"
+domain_count.one = "{count} Domain"
+domain_count.other = "{count} Domains"
+clear_cookies = "Alle Cookies löschen"
+stored_in = "Die Einstellungen werden dauerhaft gespeichert in <code>{path}</code>."
+
+[page.bookmarks]
+title = "Lesezeichen"
+summary = "{bookmarks}{folders}."
+none_yet = """Noch keine Lesezeichen. Mit dem Stern ☆ neben der Adresszeile oder
+<b>Strg+D</b> wird die aktuelle Seite gespeichert."""
+edit = "Bearbeiten"
+done = "Fertig"
+new_folder = "Neuer Ordner"
+# {name}: Eingabefeld, {folder}: Auswahl des übergeordneten Ordners, {button}: Knopf
+new_folder_form = "Name: {name} in {folder} {button}"
+create_folder = "Ordner anlegen"
+edit_help = """Mit „Verschieben“ wandert ein Lesezeichen oder Ordner samt Inhalt
+ans Ende des gewählten Ordners. „Entfernen“ bei einem Ordner löscht auch alles,
+was darin liegt."""
+all = "Alle Lesezeichen"
+rename = "Umbenennen"
+remove = "Entfernen"
+move = "Verschieben"
+empty = "(leer)"
+file = "Datei"
+file_location = "Die Lesezeichen liegen in <code>{path}</code>."
+file_help = """Die Datei hat das Lesezeichen-Format, das Chrome und Firefox beim Exportieren
+schreiben und beim Importieren lesen („Lesezeichen aus HTML-Datei importieren“).
+Umgekehrt kann eine aus Chrome oder Firefox exportierte Datei einfach an diese Stelle
+kopiert werden. Ordner, Beschreibungen und Symbole bleiben dabei erhalten."""
+
+[page.notes]
+title = "Notizen"
+save = "Speichern"
+discard = "Änderungen verwerfen"
+help = """Speichern mit dem Knopf oder <b>Strg+S</b>. Ungespeicherte Änderungen werden außerdem
+automatisch gesichert, sobald die Seite verlassen, der Tab geschlossen oder der Anzeiger
+beendet wird. „Änderungen verwerfen“ stellt den zuletzt gespeicherten Stand wieder her."""
+location = "Die Notizen liegen als reiner Text in <code>{path}</code>."
+
+[page.error]
+title = "Fehler"
+heading = "Seite kann nicht geladen werden"

@@ -14,7 +14,8 @@ from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from . import bookmarks, forms, images, net, notes
+from . import bookmarks, forms, i18n, images, net, notes
+from .i18n import keys, t, tn
 from .layout import FieldOp, ImageOp, Page, render_html, render_text
 from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, NOTES_URL, PageContext, error_page,
                     image_page, internal_page, internal_url, is_internal)
@@ -58,7 +59,7 @@ class Tab:
     def title(self) -> str:
         if self.page is not None and self.page.title:
             return self.page.title
-        return self.current_url or self.address or "Neuer Tab"
+        return self.current_url or self.address or t("app.new_tab")
 
     def set_address(self, url: str) -> None:
         self.address = url
@@ -77,7 +78,7 @@ class Tab:
 
     def navigate(self, url: str, push: bool = True) -> None:
         if not self.app.allowed(url):
-            self.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+            self.set_status(t("app.only_http", url=url))
             return
         if push:
             self._push(url)
@@ -90,7 +91,7 @@ class Tab:
 
     def follow_link(self, url: str) -> None:
         if not self.app.allowed(url):
-            self.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+            self.set_status(t("app.only_http", url=url))
             return
         current = self.current_url
         fragment = urlsplit(url).fragment
@@ -122,7 +123,7 @@ class Tab:
         if self.loading:
             self.generation += 1
             self.loading = False
-            self.set_status("Abgebrochen")
+            self.set_status(t("app.cancelled"))
             self._changed()
 
     def close(self) -> None:
@@ -138,7 +139,7 @@ class Tab:
                     entries: list[tuple[str, str]]) -> None:
         page = self.page
         if page is None or form_index is None or not 0 <= form_index < len(page.forms):
-            self.set_status("Dieses Feld gehört zu keinem Formular.")
+            self.set_status(t("form.no_form"))
             return
         form = page.forms[form_index]
         action = (submitter.formaction if submitter and submitter.formaction else form.action)
@@ -155,17 +156,16 @@ class Tab:
             elif is_internal(page.url) and method == "post" and target == NOTES_URL:
                 self.app.notes_post(self, entries)
             else:
-                self.set_status("Formular abgelehnt: Ziel ist eine eingebaute Seite.")
+                self.set_status(t("form.internal_rejected"))
             return
         if not net.is_supported(action):
-            self.set_status(f"Formular nicht abgeschickt – nur HTTP und HTTPS werden unterstützt: {action}")
+            self.set_status(t("form.unsupported", url=action))
             return
         if urlsplit(page.url).scheme == "https" and urlsplit(action).scheme == "http":
             if not messagebox.askyesno(
-                    "Unverschlüsselt senden?",
-                    f"Die Formulardaten würden unverschlüsselt (HTTP) gesendet an:\n{action}\n\n"
-                    "Andere könnten sie mitlesen. Trotzdem senden?", icon="warning", parent=self.app.root):
-                self.set_status("Abschicken abgebrochen.")
+                    t("form.insecure_title"), t("form.insecure_question", url=action),
+                    icon="warning", parent=self.app.root):
+                self.set_status(t("form.cancelled"))
                 return
         submission = forms.build_submission(action, method, enctype, entries)
         if submission.method == "GET":
@@ -189,14 +189,14 @@ class Tab:
         generation = self.generation
         self.loading = True
         self.set_address(url)
-        self.set_status(f"Lade {url} …")
+        self.set_status(t("app.loading", url=url))
         self._changed()
         if is_internal(url):
             # Eingebaute Seiten sofort anzeigen, ohne Netzzugriff
             self._page_loaded(url, self.app.render_internal(url))
             return
         if submission is not None:
-            self.set_status(f"Sende Formular an {url} …")
+            self.set_status(t("app.sending", url=url))
         columns = self.app.columns()
         max_width = self.app.content_width()
         results = self.app.results
@@ -225,7 +225,7 @@ class Tab:
         elif ctype.startswith("text/"):
             page = render_text(net.decode_body(response.body, response.charset), response.url)
         else:
-            page = render_html(error_page(response.url, f"Inhaltstyp „{ctype}“ wird nicht unterstützt."),
+            page = render_html(error_page(response.url, t("app.unsupported_type", type=ctype)),
                                response.url)
         if response.status >= 400 and not page.title:
             page.title = f"{response.status} {response.reason}"
@@ -238,7 +238,7 @@ class Tab:
             image_format, size = images.probe(response.body)
             png, shown = images.decode_image(response.body, max_width=max_width)
         except images.ImageError as error:
-            return render_html(error_page(response.url, f"Bild kann nicht angezeigt werden: {error}"),
+            return render_html(error_page(response.url, t("image.cannot_show", error=error)),
                                response.url)
         page = render_html(image_page(response.url, image_format, size, shown), response.url)
         page.preloaded[response.url] = png
@@ -272,7 +272,7 @@ class Tab:
         self._show(page)
         if fragment:
             self.view.scroll_to(fragment)
-        self.set_status("Fertig")
+        self.set_status(t("app.done"))
         self._changed()
         self._load_images(page)
 
@@ -287,9 +287,9 @@ class Tab:
     @staticmethod
     def _image_note(page_url: str, op: ImageOp) -> str | None:
         if not op.src:
-            return "Bild ohne Adresse"
+            return t("image.no_address")
         if not net.same_server(page_url, op.src):
-            return f"Bild von fremdem Server – nicht geladen: {op.src}"
+            return t("image.foreign", url=op.src)
         return None
 
     def _load_images(self, page: Page) -> None:
@@ -315,7 +315,7 @@ class Tab:
                     results.put((self, generation, "image", (number, png)))
                 except Exception as error:
                     results.put((self, generation, "image-error",
-                                 (number, f"Bild nicht geladen ({error}): {op.src}")))
+                                 (number, t("image.failed", error=error, url=op.src))))
 
             self.app.pool.submit(work)
 
@@ -326,6 +326,8 @@ class App:
         self.settings_path = default_path()
         self.settings = Settings.load(self.settings_path)
         net.set_cookies_enabled(self.settings.cookies_enabled)
+        i18n.set_language(self.settings.language)
+        net.set_accept_language(i18n.language())
         self.bookmarks_path = bookmarks.default_path()
         self.bookmarks_edit = False
         self._bookmarks_cache: tuple[float, bookmarks.Folder] | None = None
@@ -343,14 +345,14 @@ class App:
         self.url_var = tk.StringVar()
         self.entry = ttk.Entry(bar, textvariable=self.url_var)
         self.star_button = ttk.Button(bar, text="☆", width=3, command=self.toggle_bookmark)
-        go_button = ttk.Button(bar, text="Los", command=self.go)
+        self.go_button = ttk.Button(bar, text=t("app.go"), command=self.go)
         self.bookmark_menu = tk.Menu(root, tearoff=False, postcommand=self._fill_bookmark_menu)
-        menu_button = ttk.Menubutton(bar, text="Lesezeichen", menu=self.bookmark_menu)
+        self.bookmark_button = ttk.Menubutton(bar, text=t("app.bookmarks_menu"), menu=self.bookmark_menu)
         self.zoom_var = tk.IntVar(value=self.settings.zoom)
         self.zoom_icon = _magnifier_icon(root)
         self.zoom_menu = tk.Menu(root, tearoff=False)
         self.zoom_button = ttk.Menubutton(bar, image=self.zoom_icon, compound="left", menu=self.zoom_menu,
-                                          text=f"{self.settings.zoom} %", width=5)
+                                          text=t("zoom.level", zoom=self.settings.zoom), width=5)
         self._fill_zoom_menu()
         new_tab_button = ttk.Button(bar, text="+", width=3, command=self.new_tab_key)
         self.back_button.pack(side="left")
@@ -359,8 +361,8 @@ class App:
         self.reload_button.pack(side="left", padx=(2, 6))
         self.entry.pack(side="left", fill="x", expand=True)
         self.star_button.pack(side="left", padx=(2, 0))
-        go_button.pack(side="left", padx=(6, 0))
-        menu_button.pack(side="left", padx=(6, 0))
+        self.go_button.pack(side="left", padx=(6, 0))
+        self.bookmark_button.pack(side="left", padx=(6, 0))
         self.zoom_button.pack(side="left", padx=(6, 0))
         new_tab_button.pack(side="left", padx=(6, 0))
 
@@ -473,9 +475,9 @@ class App:
             position = self.notebook.index(after.view) + 1
             if position >= self.notebook.index("end"):
                 position = "end"   # ttk lehnt die Anzahl der Tabs als Position ab
-            self.notebook.insert(position, tab.view, text="Neuer Tab")
+            self.notebook.insert(position, tab.view, text=t("app.new_tab"))
         else:
-            self.notebook.add(tab.view, text="Neuer Tab")
+            self.notebook.add(tab.view, text=t("app.new_tab"))
         if select:
             self.notebook.select(tab.view)
         if url:
@@ -493,14 +495,14 @@ class App:
         """
         current = self.tab
         if not self.allowed(url):
-            current.set_status(f"Nur HTTP und HTTPS werden unterstützt: {url}")
+            current.set_status(t("app.only_http", url=url))
             return
         after = current
         if self._opened_from and self._opened_from[0] is current and not self._opened_from[1].closed:
             after = self._opened_from[1]
         tab = self.new_tab(url, select=False, after=after)
         self._opened_from = (current, tab)
-        current.set_status(f"In neuem Tab geöffnet: {url}")
+        current.set_status(t("app.opened_in_new_tab", url=url))
 
     def close_tab(self, tab: Tab | None = None) -> None:
         """Schließt einen Tab; der letzte wird durch einen leeren Tab mit der Startseite ersetzt."""
@@ -522,7 +524,7 @@ class App:
 
     def reopen_closed_tab(self) -> None:
         if not self.closed_tabs:
-            self.tab.set_status("Es gibt keinen geschlossenen Tab zum Wiederherstellen.")
+            self.tab.set_status(t("app.no_closed_tab"))
             return
         history, position, index = self.closed_tabs.pop()
         tab = self.new_tab(None)
@@ -546,7 +548,7 @@ class App:
         """Beschriftung des Tabs und – falls sichtbar – Adresszeile, Knöpfe und Titel nachführen."""
         if tab.closed:
             return
-        label = "Lädt …" if tab.loading else _short(tab.title, MAX_TAB_LABEL)
+        label = t("app.loading_tab") if tab.loading else _short(tab.title, MAX_TAB_LABEL)
         self.notebook.tab(tab.view, text=label)
         if tab.active:
             self._update_chrome()
@@ -558,7 +560,7 @@ class App:
         self._update_buttons()
         self._update_star()
         title = tab.page.title if tab.page is not None and tab.page.title else ""
-        self.root.title(f"{title} – Anzeiger" if title else "Anzeiger")
+        self.root.title(t("app.window_title", title=title) if title else "Anzeiger")
 
     def _tab_switched(self, _event: tk.Event) -> None:
         if not self._tabs:
@@ -593,13 +595,14 @@ class App:
         menu = self.tab_menu
         menu.delete(0, "end")
         if tab is not None:
-            menu.add_command(label="Neu laden", command=tab.reload)
-            menu.add_command(label="Tab schließen", accelerator="Strg+W", command=lambda: self.close_tab(tab))
-            menu.add_command(label="Andere Tabs schließen", command=lambda: self.close_other_tabs(tab),
+            menu.add_command(label=t("tab_menu.reload"), command=tab.reload)
+            menu.add_command(label=t("tab_menu.close"), accelerator=keys("ctrl", "W"),
+                             command=lambda: self.close_tab(tab))
+            menu.add_command(label=t("tab_menu.close_others"), command=lambda: self.close_other_tabs(tab),
                              state="normal" if len(self._tabs) > 1 else "disabled")
             menu.add_separator()
-        menu.add_command(label="Neuer Tab", accelerator="Strg+T", command=self.new_tab_key)
-        menu.add_command(label="Geschlossenen Tab wieder öffnen", accelerator="Strg+Umschalt+T",
+        menu.add_command(label=t("tab_menu.new"), accelerator=keys("ctrl", "T"), command=self.new_tab_key)
+        menu.add_command(label=t("tab_menu.reopen"), accelerator=keys("ctrl", "shift", "T"),
                          command=self.reopen_closed_tab,
                          state="normal" if self.closed_tabs else "disabled")
         menu.tk_popup(event.x_root, event.y_root)
@@ -624,21 +627,36 @@ class App:
         action = data.get("action")
         if action == "clear-cookies":
             net.clear_cookies()
-            message = "Alle Cookies wurden gelöscht."
+            message = t("config.cookies_cleared")
         elif action == "save":
             self.settings.cookies_enabled = "cookies" in data
             self.settings.lists_collapsed = "lists" in data
             self.settings.sublists_collapsed = "sublists" in data
             net.set_cookies_enabled(self.settings.cookies_enabled)
+            language = data.get("language", self.settings.language)
+            if language != self.settings.language:
+                self.settings.language = language
+                self.set_language(language)
             try:
                 self.settings.save(self.settings_path)
-                message = "Einstellungen gespeichert."
+                message = t("config.saved")
             except OSError as error:
-                message = f"Einstellungen gelten nur bis zum Beenden – Speichern fehlgeschlagen: {error}"
+                message = t("config.save_failed", error=error)
         else:
-            message = "Unbekannte Aktion."
+            message = t("app.unknown_action")
         tab.show_internal(CONFIG_URL, message)
         tab.set_status(message)
+
+    def set_language(self, code: str) -> None:
+        """Wechselt die Sprache; Knöpfe, Menüs und Tab-Beschriftungen sofort, Seiten beim nächsten Laden."""
+        i18n.set_language(code)
+        net.set_accept_language(i18n.language())
+        self.go_button.configure(text=t("app.go"))
+        self.bookmark_button.configure(text=t("app.bookmarks_menu"))
+        self.zoom_button.configure(text=t("zoom.level", zoom=self.settings.zoom))
+        self._fill_zoom_menu()
+        for tab in self._tabs.values():
+            self.tab_changed(tab)
 
     def render_internal(self, url: str, message: str = "") -> Page:
         notes_text = ""
@@ -646,7 +664,7 @@ class App:
             try:
                 notes_text = notes.load(self.notes_path)
             except OSError as error:
-                message = message or f"Notizen nicht lesbar: {error}"
+                message = message or t("notes.unreadable", error=error)
         ctx = PageContext(self.settings, self.settings_path, net.cookie_hosts(), message,
                           self._bookmarks(), self.bookmarks_path, self.bookmarks_edit,
                           notes_text, self.notes_path)
@@ -664,8 +682,8 @@ class App:
             try:
                 self._bookmarks_cache = (mtime, bookmarks.load(self.bookmarks_path))
             except OSError as error:
-                self._set_status(f"Lesezeichen-Datei nicht lesbar: {error}")
-                return bookmarks.Folder("Lesezeichen")
+                self._set_status(t("bookmarks.unreadable", error=error))
+                return bookmarks.Folder("")
         return self._bookmarks_cache[1]
 
     def _bookmark_key(self, _event: tk.Event) -> str:
@@ -677,21 +695,21 @@ class App:
         tab = self.tab
         url = tab.current_url
         if not url or not net.is_supported(url):
-            self._set_status("Nur Webseiten (HTTP/HTTPS) können als Lesezeichen gespeichert werden.")
+            self._set_status(t("bookmarks.only_web"))
             return
         try:
             if self._bookmarks().find_url(url) is None:
                 title = tab.page.title if tab.page and tab.page.title else url
                 bookmarks.add(self.bookmarks_path, url, title)
-                message = f"Lesezeichen gespeichert: {title}"
-            elif messagebox.askyesno("Lesezeichen entfernen?",
-                                     f"Das Lesezeichen für\n{url}\nentfernen?", parent=self.root):
+                message = t("bookmarks.saved", title=title)
+            elif messagebox.askyesno(t("bookmarks.remove_title"), t("bookmarks.remove_question", url=url),
+                                     parent=self.root):
                 bookmarks.remove_url(self.bookmarks_path, url)
-                message = "Lesezeichen entfernt."
+                message = t("bookmarks.removed")
             else:
                 return
         except OSError as error:
-            message = f"Lesezeichen konnte nicht gespeichert werden: {error}"
+            message = t("bookmarks.save_failed", error=error)
         self._update_star()
         self._set_status(message)
 
@@ -705,10 +723,10 @@ class App:
         menu.delete(0, "end")
         url = self.tab.current_url
         marked = bool(url and net.is_supported(url) and self._bookmarks().find_url(url) is not None)
-        menu.add_command(label="Lesezeichen entfernen" if marked else "Lesezeichen für diese Seite",
-                         accelerator="Strg+D", command=self.toggle_bookmark,
+        menu.add_command(label=t("bookmarks.remove") if marked else t("bookmarks.add"),
+                         accelerator=keys("ctrl", "D"), command=self.toggle_bookmark,
                          state="normal" if url and net.is_supported(url) else "disabled")
-        menu.add_command(label="Lesezeichen verwalten", accelerator="Strg+Umschalt+O",
+        menu.add_command(label=t("bookmarks.manage"), accelerator=keys("ctrl", "shift", "O"),
                          command=lambda: self.tab.navigate(BOOKMARKS_URL))
         root = self._bookmarks()
         if root.children:
@@ -719,15 +737,15 @@ class App:
         shown = 0
         for child in folder.children:
             if shown >= MAX_MENU_ENTRIES:
-                menu.add_command(label="… weitere unter „Lesezeichen verwalten“",
+                menu.add_command(label=t("bookmarks.more"),
                                  command=lambda: self.tab.navigate(BOOKMARKS_URL))
                 break
             if isinstance(child, bookmarks.Folder):
                 submenu = tk.Menu(menu, tearoff=False)
                 self._add_menu_entries(submenu, child)
                 if not child.children:
-                    submenu.add_command(label="(leer)", state="disabled")
-                menu.add_cascade(label=_short(child.title or "(Ordner ohne Namen)"), menu=submenu)
+                    submenu.add_command(label=t("bookmarks.empty"), state="disabled")
+                menu.add_cascade(label=_short(child.title or t("bookmarks.unnamed_folder")), menu=submenu)
             elif isinstance(child, bookmarks.Bookmark):
                 menu.add_command(label=_short(child.title or child.url),
                                  command=lambda u=child.url: self.tab.follow_link(u))
@@ -739,51 +757,55 @@ class App:
 
     def bookmarks_post(self, tab: Tab, entries: list[tuple[str, str]]) -> None:
         data: dict[str, str] = dict(entries)
-        action = data.get("action")
+        # Knöpfe werden am Namen erkannt, ihre Beschriftung hängt von der Sprache ab.
+        action = data.get("action") or next(
+            (name for name in ("add-folder", "rename", "move", "remove") if name in data), None)
         where = bookmarks.parse_path(data.get("path", ""))
         key = data.get("key", "")
         title = data.get("title", "")
         dest = bookmarks.parse_folder(data.get("dest", ""))
-        gone = "Eintrag nicht gefunden – die Datei wurde inzwischen geändert."
+        gone = t("bookmarks.gone")
         try:
             if action == "edit":
                 self.bookmarks_edit, message = True, ""
             elif action == "done":
                 self.bookmarks_edit, message = False, ""
-            elif action == "Ordner anlegen" and dest is not None:
+            elif action == "add-folder" and dest is not None:
                 if not title.strip():
-                    message = "Bitte einen Namen für den neuen Ordner eingeben."
+                    message = t("bookmarks.folder_name_missing")
                 elif bookmarks.add_folder(self.bookmarks_path, dest, title):
-                    message = f"Ordner „{' '.join(title.split())}“ angelegt."
+                    message = t("bookmarks.folder_created", title=" ".join(title.split()))
                 else:
-                    message = "Der Zielordner wurde nicht gefunden."
-            elif action == "Umbenennen" and where is not None:
+                    message = t("bookmarks.target_missing")
+            elif action == "rename" and where is not None:
                 if not title.strip():
-                    message = "Der Name darf nicht leer sein."
+                    message = t("bookmarks.name_empty")
                 elif bookmarks.rename_at(self.bookmarks_path, where, key, title):
-                    message = "Umbenannt."
+                    message = t("bookmarks.renamed")
                 else:
                     message = gone
-            elif action == "Verschieben" and where is not None and dest is not None:
+            elif action == "move" and where is not None and dest is not None:
                 try:
-                    message = "Verschoben." if bookmarks.move_at(self.bookmarks_path, where, key, dest) else gone
+                    moved = bookmarks.move_at(self.bookmarks_path, where, key, dest)
+                    message = t("bookmarks.moved") if moved else gone
                 except ValueError as error:
                     message = str(error)
-            elif action == "Entfernen" and where is not None:
+            elif action == "remove" and where is not None:
                 node = self._bookmarks().node(where)
                 if (isinstance(node, bookmarks.Folder) and node.children and not messagebox.askyesno(
-                        "Ordner entfernen?",
-                        f"Der Ordner „{node.title}“ ist nicht leer ({node.count()} Lesezeichen). "
-                        "Ihn samt Inhalt entfernen?", icon="warning", parent=self.root)):
-                    message = "Nichts entfernt."
+                        t("bookmarks.remove_folder_title"),
+                        t("bookmarks.remove_folder_question", title=node.title,
+                          bookmarks=tn("bookmarks.count", node.count())),
+                        icon="warning", parent=self.root)):
+                    message = t("bookmarks.nothing_removed")
                 elif bookmarks.remove_at(self.bookmarks_path, where, key):
-                    message = "Entfernt."
+                    message = t("bookmarks.entry_removed")
                 else:
                     message = gone
             else:
-                message = "Unbekannte Aktion."
+                message = t("app.unknown_action")
         except OSError as error:
-            message = f"Lesezeichen konnten nicht gespeichert werden: {error}"
+            message = t("bookmarks.list_failed", error=error)
         tab.show_internal(BOOKMARKS_URL, message)
         if message:
             tab.set_status(message)
@@ -801,12 +823,13 @@ class App:
         current = dict(tab.view.form_entries(op.form, None)).get("text", op.value)
         return op.value, current
 
-    def save_notes(self, text: str) -> str:
+    def save_notes(self, text: str) -> tuple[bool, str]:
+        """(gespeichert?, Meldung)"""
         try:
             notes.save(self.notes_path, text)
-            return "Notizen gespeichert."
+            return True, t("notes.saved")
         except OSError as error:
-            return f"Notizen konnten nicht gespeichert werden: {error}"
+            return False, t("notes.save_failed", error=error)
 
     def keep_notes(self, tab: Tab) -> None:
         """Sichert geänderte Notizen, bevor die Seite verlassen oder der Tab geschlossen wird.
@@ -816,13 +839,13 @@ class App:
         """
         field = self._notes_field(tab)
         if field is not None and field[0] != field[1]:
-            message = self.save_notes(field[1])
-            if not message.startswith("Notizen gespeichert"):
-                messagebox.showerror("Notizen", message, parent=self.root)
+            saved, message = self.save_notes(field[1])
+            if not saved:
+                messagebox.showerror(t("notes.dialog_title"), message, parent=self.root)
 
     def notes_post(self, tab: Tab, entries: list[tuple[str, str]]) -> None:
         text = dict(entries).get("text")
-        message = "Unbekannte Aktion." if text is None else self.save_notes(text)
+        message = t("app.unknown_action") if text is None else self.save_notes(text)[1]
         tab.show_internal(NOTES_URL, message)
         tab.set_status(message)
 
@@ -847,13 +870,13 @@ class App:
     def set_zoom(self, zoom: int) -> None:
         """Gilt für alle Tabs und bleibt nach einem Neustart erhalten."""
         self.zoom_var.set(zoom)
-        self.zoom_button.configure(text=f"{zoom} %")
+        self.zoom_button.configure(text=t("zoom.level", zoom=zoom))
         if zoom == self.settings.zoom:
             return
         self.settings.zoom = zoom
         for tab in self._tabs.values():
             tab.view.set_zoom(zoom)
-        self._set_status(f"Vergrößerung: {zoom} %")
+        self._set_status(t("zoom.status", zoom=zoom))
         try:
             self.settings.save(self.settings_path)
         except OSError:
@@ -861,12 +884,13 @@ class App:
 
     def _fill_zoom_menu(self) -> None:
         menu = self.zoom_menu
-        menu.add_command(label="Vergrößern", accelerator="Strg++", command=lambda: self.zoom_step(1))
-        menu.add_command(label="Verkleinern", accelerator="Strg+−", command=lambda: self.zoom_step(-1))
-        menu.add_command(label="Originalgröße", accelerator="Strg+0", command=lambda: self.zoom_step(0))
+        menu.delete(0, "end")
+        menu.add_command(label=t("zoom.larger"), accelerator=keys("ctrl", "+"), command=lambda: self.zoom_step(1))
+        menu.add_command(label=t("zoom.smaller"), accelerator=keys("ctrl", "−"), command=lambda: self.zoom_step(-1))
+        menu.add_command(label=t("zoom.original"), accelerator=keys("ctrl", "0"), command=lambda: self.zoom_step(0))
         menu.add_separator()
         for level in ZOOM_LEVELS:
-            menu.add_radiobutton(label=f"{level} %", value=level, variable=self.zoom_var,
+            menu.add_radiobutton(label=t("zoom.level", zoom=level), value=level, variable=self.zoom_var,
                                  command=lambda level=level: self.set_zoom(level))
 
     # -- Ergebnisse aus dem Hintergrund und Anzeige ---------------------------------
