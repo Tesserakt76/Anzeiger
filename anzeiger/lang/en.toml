@@ -78,6 +78,9 @@ list.one = "List ({count} item)"
 list.other = "List ({count} items)"
 toggle_list = "Expand or collapse list"
 toggle_sublist = "Expand or collapse sublist"
+hidden = "Hidden"
+hidden_text = "Hidden: {text}"
+toggle_hidden = "Expand or collapse content hidden by the page"
 
 [image]
 placeholder = "[Image]"
@@ -167,7 +170,7 @@ bookmarks_about = "saved pages in folders, compatible with Chrome and Firefox."
 notes = "Notes"
 notes_about = "a simple notepad that is saved permanently."
 config = "Settings"
-config_about = "language, cookies, lists expanded or collapsed."
+config_about = "language, cookies, lists and hidden content expanded or collapsed."
 shortcuts = "Keyboard shortcuts"
 key = "Key"
 effect = "Effect"
@@ -216,6 +219,14 @@ lists_collapsed = "Show whole lists collapsed"
 sublists_collapsed = "Show sublists collapsed"
 lists_help = """Applies to pages loaded after saving. Clicking ▸ or ▾ expands or collapses
 a list at any time."""
+hidden = "Hidden content"
+hidden_collapsed = "Show content hidden by the page collapsed"
+hidden_help = """Some pages hide parts of their content, such as sections that a script only reveals
+on click, but also form fields meant to be filled in only by spam programs. If the box is ticked,
+such parts appear collapsed behind “▸ Hidden: …” and can be expanded with a click. Without the tick
+they are shown like normal content. Only what is written directly in the HTML element is detected
+(<code>style="display:none"</code> or <code>visibility:hidden</code>); parts hidden by style sheets
+always stay visible. Applies to pages loaded after saving."""
 save = "Save"
 stored_cookies = "Stored cookies"
 cookies_off = "Cookies are turned off."

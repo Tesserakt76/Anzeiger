@@ -7,6 +7,7 @@ unabhängig von tkinter, damit sich das Layout ohne Fenster testen lässt.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from urllib.parse import urljoin
 
@@ -46,6 +47,15 @@ BLOCK = {
     "legend": 1, "dt": 1, "dd": 1, "caption": 1, "body": 1, "html": 1,
     "search": 1, "noscript": 1, "label": 0, "optgroup": 1,
 }
+
+# Elemente, die als eigener Block dargestellt werden (Klappschalter in eigener Zeile).
+BLOCK_TAGS = frozenset(tag for tag, margin in BLOCK.items() if margin) | frozenset({
+    "h1", "h2", "h3", "h4", "h5", "h6", "hr", "blockquote", "pre", "listing", "xmp",
+    "plaintext", "ul", "ol", "menu", "dir", "li", "table",
+})
+# Elemente, die auch ohne Text etwas anzeigen
+CONTENT_TAGS = frozenset({"img", "input", "select", "textarea", "button", "iframe", "hr"})
+HIDDEN_PREVIEW = 50   # Zeichen Text in der Schalterzeile verborgener Inhalte
 
 _WS = re.compile(r"[ \t\n\r\f]+")
 _TOKENS = re.compile(r"\s+|\S+")
@@ -111,10 +121,16 @@ class AnchorOp:
 
 @dataclass
 class ListToggleOp:
-    """Eigene Zeile mit Klappschalter vor einer ganzen Liste („▾ Liste (3 Einträge)“)."""
+    """Klappschalter vor einem einklappbaren Bereich.
+
+    kind = "list": eigene Zeile vor einer ganzen Liste („▾ Liste (3 Einträge)“),
+    kind = "hidden": von der Seite per style versteckter Inhalt; `inline` = mitten im Text.
+    """
     fold: int
     label: str
     style: Style
+    kind: str = "list"
+    inline: bool = False
 
 
 @dataclass
@@ -122,7 +138,8 @@ class FoldStartOp:
     """Beginn eines einklappbaren Bereichs.
 
     kind = "sublist": Unterliste des Listeneintrags `fold` (Schalter am Marker),
-    kind = "list": ganze Liste (Schalter in einer ListToggleOp davor).
+    kind = "list": ganze Liste (Schalter in einer ListToggleOp davor),
+    kind = "hidden": verborgener Inhalt (Schalter in einer ListToggleOp davor).
     """
     fold: int
     kind: str = "sublist"
@@ -188,14 +205,18 @@ class Page:
     preloaded: dict[str, bytes] = field(default_factory=dict)   # Bildadresse → fertiges Bild (PPM)
 
 
-def render_html(source: str, url: str, columns: int = 100) -> Page:
-    """Parst und layoutet eine HTML-Seite. `columns` begrenzt die Tabellenbreite."""
+def render_html(source: str, url: str, columns: int = 100, fold_hidden: bool = False) -> Page:
+    """Parst und layoutet eine HTML-Seite. `columns` begrenzt die Tabellenbreite.
+
+    `fold_hidden`: per style="display:none" oder "visibility:hidden" versteckte Elemente
+    einklappbar zeigen, statt sie wie sichtbaren Inhalt zu behandeln.
+    """
     root = parse_html(source)
     base = url
     base_el = next((e for e in root.iter("base") if e.get("href")), None)
     if base_el is not None:
         base = urljoin(url, base_el.get("href", "").strip())
-    renderer = Renderer(base, columns, page_url=url)
+    renderer = Renderer(base, columns, page_url=url, fold_hidden=fold_hidden)
     title_el = root.find("title")
     title = _WS.sub(" ", title_el.text()).strip() if title_el is not None else ""
 
@@ -221,6 +242,53 @@ def render_text(source: str, url: str) -> Page:
     renderer.text(source, Style(mono=True, pre=True))
     renderer.finish()
     return Page(url, url.rsplit("/", 1)[-1], renderer.ops)
+
+
+def hidden_by_style(el: Element) -> bool:
+    """True, wenn das style-Attribut das Element versteckt (display:none, visibility:hidden).
+
+    Ausgewertet wird nur dieses Attribut; Stylesheets und Klassen bleiben unbeachtet.
+    """
+    props: dict[str, str] = {}
+    for declaration in (el.get("style") or "").split(";"):
+        name, colon, value = declaration.partition(":")
+        if colon:
+            value = value.strip().lower()
+            props[name.strip().lower()] = value.removesuffix("!important").strip()
+    return props.get("display") == "none" or props.get("visibility") == "hidden"
+
+
+def _shown_children(el: Element) -> Iterator[Element | str]:
+    for child in el.children:
+        if isinstance(child, str) or (child.tag not in SKIP and "hidden" not in child.attrs):
+            yield child
+
+
+def _visible_text(el: Element) -> str:
+    """Text des Elements ohne Skripte, Stile und Elemente mit hidden-Attribut."""
+    parts = []
+    for child in _shown_children(el):
+        if isinstance(child, str):
+            parts.append(child)
+        elif child.tag in BLOCK_TAGS or child.tag in ("br", "td", "th"):
+            parts.append(f" {_visible_text(child)} ")   # Blöcke nicht aneinanderkleben
+        else:
+            parts.append(_visible_text(child))
+    return "".join(parts)
+
+
+def _has_content(el: Element) -> bool:
+    """Würde das Element Text, ein Bild, ein Formularfeld o. Ä. anzeigen?"""
+    for child in _shown_children(el):
+        if isinstance(child, str):
+            if child.strip():
+                return True
+        elif child.tag in CONTENT_TAGS and not (child.tag == "input"
+                                                and (child.get("type") or "").lower() == "hidden"):
+            return True
+        elif _has_content(child):
+            return True
+    return el.tag in CONTENT_TAGS and not (el.tag == "input" and (el.get("type") or "").lower() == "hidden")
 
 
 def _meta_refresh(root: Element, base: str) -> str | None:
@@ -279,11 +347,13 @@ def list_number(n: int, kind: str) -> str:
 
 class Renderer:
     def __init__(self, base_url: str, columns: int = 100, page_url: str | None = None,
-                 foldable: bool = True) -> None:
+                 foldable: bool = True, fold_hidden: bool = False) -> None:
         self.base_url = base_url
         self.page_url = page_url or base_url
         self.columns = columns
         self.foldable = foldable      # False in Tabellenzellen (dort nur Text)
+        self.fold_hidden = fold_hidden
+        self.in_hidden = 0            # > 0 innerhalb eines verborgenen Bereichs
         self.forms: list[FormInfo] = []
         self.current_form: int | None = None
         self.ops: list[Op] = []
@@ -393,9 +463,15 @@ class Renderer:
             self.node(child, style)
 
     def element(self, el: Element, style: Style) -> None:
-        tag = el.tag
-        if tag in SKIP or "hidden" in el.attrs:
+        if el.tag in SKIP or "hidden" in el.attrs:
             return
+        if self._fold_here(el):
+            self._hidden(el, style, lambda: self._element(el, style))
+        else:
+            self._element(el, style)
+
+    def _element(self, el: Element, style: Style) -> None:
+        tag = el.tag
         anchor = el.get("id")
         if anchor:
             self.pending_anchors.append(anchor)
@@ -661,7 +737,10 @@ class Renderer:
                 if re.fullmatch(r"-?\d+", value):
                     counter = int(value)
                 marker = list_number(counter, kind) + "." if ordered else "*"
-                self._li(child, inner, marker)
+                if self._fold_here(child):
+                    self._hidden(child, inner, lambda: self._li(child, inner, marker))
+                else:
+                    self._li(child, inner, marker)
                 counter += 1
             else:
                 self.node(child, inner)
@@ -669,6 +748,50 @@ class Renderer:
         if fold is not None:
             self.ops.append(FoldEndOp(fold))
         self.block_break(margin)
+
+    def _fold_here(self, el: Element) -> bool:
+        """Verborgenes Element, das einen eigenen Klappschalter bekommt?
+
+        Nicht in Tabellenzellen (dort nur Text), nicht innerhalb eines schon verborgenen
+        Bereichs und nicht, wenn das Element ohnehin nichts anzeigen würde.
+        """
+        return (self.fold_hidden and self.foldable and not self.in_hidden
+                and hidden_by_style(el) and _has_content(el))
+
+    def _hidden(self, el: Element, style: Style, render: Callable[[], None]) -> None:
+        """Zeigt ein verborgenes Element eingeklappt hinter einem Schalter („▸ Verborgen: …“)."""
+        fold = self.folds
+        self.folds += 1
+        preview = _WS.sub(" ", _visible_text(el)).strip()
+        if len(preview) > HIDDEN_PREVIEW:
+            preview = preview[:HIDDEN_PREVIEW].rstrip() + " …"
+        label = t("layout.hidden_text", text=preview) if preview else t("layout.hidden")
+        toggle_style = replace(style, href=None, info=None, dim=True, bold=False, italic=False,
+                               underline=False, strike=False, mark=False, pre=False, nowrap=False)
+        block = el.tag in BLOCK_TAGS
+        if block:
+            self.block_break(1)
+            self._flush()
+            self.ops.append(ListToggleOp(fold, label, toggle_style, "hidden"))
+            self.trailing_nl = 1
+            self.pending_space = False
+        else:
+            self._flush()
+            self.pending_space = True
+            self._space()
+            self.ops.append(ListToggleOp(fold, label, toggle_style, "hidden", inline=True))
+            self.trailing_nl = 0
+            self.pending_space = True   # Abstand zum Inhalt, wird mit eingeklappt
+        self.after_marker = False
+        self.ops.append(FoldStartOp(fold, "hidden"))
+        self.in_hidden += 1
+        render()
+        self.in_hidden -= 1
+        if self.pending_marker:
+            self._flush()
+        self.ops.append(FoldEndOp(fold))
+        if not block:
+            self.pending_space = True
 
     def _li(self, el: Element, style: Style, marker: str) -> None:
         fold = None

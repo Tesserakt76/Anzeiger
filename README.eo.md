@@ -20,6 +20,8 @@ Simpla retumilo verkita en Python, kiu montras retpaĝojn kiel puran tekston.
 - Rekte malfermitaj bildadresoj (ekz. ligilo al `foto.jpg`) estas montrataj kiel aparta paĝo,
   malgrandigitaj al la larĝo de la fenestro, kun formato kaj originala grandeco sube.
 - Tutaj listoj faldeblas per la linio „▾ Listo (n eroj)“.
+- Kion paĝo kaŝas per `style="display:none"` aŭ `visibility:hidden`, tio aperas faldita
+  malantaŭ „▸ Kaŝita: …“ kaj malfaldeblas; malŝaltebla en `about:config`.
 - Formularoj (teksto, pasvorto, markobutonoj, radiobutonoj, elektolistoj, tekstareoj)
   plenigeblas kaj sendeblas per GET aŭ POST. Neniu alŝuto de dosieroj.
 - Langetoj: pluraj paĝoj en unu fenestro, ĉiu kun propra historio. Meza klako aŭ Ctrl+klako

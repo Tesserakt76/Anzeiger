@@ -78,6 +78,9 @@ list.one = "Listo ({count} ero)"
 list.other = "Listo ({count} eroj)"
 toggle_list = "Faldi aŭ malfaldi la liston"
 toggle_sublist = "Faldi aŭ malfaldi la subliston"
+hidden = "Kaŝita"
+hidden_text = "Kaŝita: {text}"
+toggle_hidden = "Faldi aŭ malfaldi enhavon kaŝitan de la paĝo"
 
 [image]
 placeholder = "[Bildo]"
@@ -167,7 +170,7 @@ bookmarks_about = "konservitaj paĝoj en dosierujoj, kongruaj kun Chrome kaj Fir
 notes = "Notoj"
 notes_about = "simpla notbloko, kiu estas konservata daŭre."
 config = "Agordoj"
-config_about = "lingvo, kuketoj, listoj falditaj aŭ malfalditaj."
+config_about = "lingvo, kuketoj, listoj kaj kaŝita enhavo falditaj aŭ malfalditaj."
 shortcuts = "Klavkombinoj"
 key = "Klavo"
 effect = "Efiko"
@@ -216,6 +219,14 @@ lists_collapsed = "Montri tutajn listojn falditaj"
 sublists_collapsed = "Montri sublistojn falditaj"
 lists_help = """Validas por paĝoj ŝargitaj post la konservado. Klako sur ▸ aŭ ▾ iam ajn faldas aŭ
 malfaldas liston."""
+hidden = "Kaŝita enhavo"
+hidden_collapsed = "Montri enhavon kaŝitan de la paĝo faldita"
+hidden_help = """Iuj paĝoj kaŝas partojn de sia enhavo, ekzemple sekciojn, kiujn skripto montras nur
+post klako, sed ankaŭ formularajn kampojn, kiujn plenigu nur spamaj programoj. Se la markobutono
+estas markita, tiaj partoj aperas falditaj malantaŭ „▸ Kaŝita: …“ kaj malfaldeblas per klako.
+Sen marko ili aperas kiel normala enhavo. Rekoniĝas nur tio, kio staras rekte en la HTML-elemento
+(<code>style="display:none"</code> aŭ <code>visibility:hidden</code>); partoj kaŝitaj per stilfolioj
+ĉiam restas videblaj. Validas por paĝoj ŝargitaj post la konservado."""
 save = "Konservi"
 stored_cookies = "Konservitaj kuketoj"
 cookies_off = "Kuketoj estas malŝaltitaj."

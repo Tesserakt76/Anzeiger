@@ -78,6 +78,9 @@ list.one = "Liste ({count} Eintrag)"
 list.other = "Liste ({count} Einträge)"
 toggle_list = "Liste ein- oder ausklappen"
 toggle_sublist = "Unterliste ein- oder ausklappen"
+hidden = "Verborgen"
+hidden_text = "Verborgen: {text}"
+toggle_hidden = "Von der Seite verborgenen Inhalt ein- oder ausklappen"
 
 [image]
 placeholder = "[Bild]"
@@ -167,7 +170,7 @@ bookmarks_about = "gespeicherte Seiten in Ordnern, kompatibel zu Chrome und Fire
 notes = "Notizen"
 notes_about = "ein einfacher Notizblock, der dauerhaft gespeichert wird."
 config = "Einstellungen"
-config_about = "Sprache, Cookies, Listen ein- oder ausgeklappt."
+config_about = "Sprache, Cookies, Listen und verborgene Inhalte ein- oder ausgeklappt."
 shortcuts = "Tastenkürzel"
 key = "Taste"
 effect = "Wirkung"
@@ -217,6 +220,15 @@ lists_collapsed = "Ganze Listen eingeklappt anzeigen"
 sublists_collapsed = "Unterlisten eingeklappt anzeigen"
 lists_help = """Gilt für Seiten, die nach dem Speichern geladen werden. Ein Klick auf ▸ bzw. ▾ klappt
 eine Liste jederzeit auf oder zu."""
+hidden = "Verborgene Inhalte"
+hidden_collapsed = "Von der Seite verborgene Inhalte eingeklappt anzeigen"
+hidden_help = """Manche Seiten verstecken Teile ihres Inhalts, etwa Bereiche, die erst ein Skript
+auf Klick zeigt, aber auch Formularfelder, die nur Spam-Programme ausfüllen sollen. Ist das Kästchen
+angekreuzt, erscheinen solche Teile eingeklappt hinter „▸ Verborgen: …“ und lassen sich mit einem Klick
+aufklappen. Ohne Haken werden sie wie normaler Inhalt angezeigt. Erkannt wird nur, was direkt im
+HTML-Element steht (<code>style="display:none"</code> oder <code>visibility:hidden</code>);
+über Stylesheets versteckte Teile bleiben immer sichtbar. Gilt für Seiten, die nach dem Speichern
+geladen werden."""
 save = "Speichern"
 stored_cookies = "Gespeicherte Cookies"
 cookies_off = "Cookies sind ausgeschaltet."

@@ -201,6 +201,7 @@ class Tab:
             self.set_status(t("app.sending", url=url))
         columns = self.app.columns()
         max_width = self.app.content_width()
+        fold_hidden = self.app.settings.hidden_collapsed
         results = self.app.results
 
         def work() -> None:
@@ -210,7 +211,7 @@ class Tab:
                                          from_page=from_page)
                 else:
                     response = net.fetch(url)
-                page = self._build_page(response, columns, max_width)
+                page = self._build_page(response, columns, max_width, fold_hidden)
                 results.put((self, generation, "page", (url, page)))
             except Exception as error:  # Fehler als Seite anzeigen
                 results.put((self, generation, "error", (url, str(error) or type(error).__name__)))
@@ -218,12 +219,14 @@ class Tab:
         self.app.pool.submit(work)
 
     @staticmethod
-    def _build_page(response: net.Response, columns: int, max_width: int) -> Page:
+    def _build_page(response: net.Response, columns: int, max_width: int,
+                    fold_hidden: bool = False) -> Page:
         ctype = response.content_type
         if ctype in images.CONTENT_TYPES and response.status < 400:
             return Tab._image_page(response, max_width)
         if ctype in ("text/html", "application/xhtml+xml"):
-            page = render_html(net.decode_body(response.body, response.charset), response.url, columns)
+            page = render_html(net.decode_body(response.body, response.charset), response.url, columns,
+                               fold_hidden)
         elif ctype.startswith("text/"):
             page = render_text(net.decode_body(response.body, response.charset), response.url)
         else:
@@ -646,6 +649,7 @@ class App:
             self.settings.cookies_enabled = "cookies" in data
             self.settings.lists_collapsed = "lists" in data
             self.settings.sublists_collapsed = "sublists" in data
+            self.settings.hidden_collapsed = "hidden" in data
             net.set_cookies_enabled(self.settings.cookies_enabled)
             language = data.get("language", self.settings.language)
             if language != self.settings.language:

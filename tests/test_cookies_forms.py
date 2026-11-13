@@ -141,6 +141,7 @@ class SettingsTest(unittest.TestCase):
         self.assertIn('name="cookies" value="on" checked', source)
         self.assertIn('name="lists" value="on" checked', source)
         self.assertNotIn('name="sublists" value="on" checked', source)
+        self.assertIn('name="hidden" value="on" checked', source)   # Standard: eingeklappt
         self.assertIn("3 Cookies von 2 Domains", source)
         self.assertIn("&lt;b&gt;.de", source)
         self.assertIn("/x/settings.json", source)

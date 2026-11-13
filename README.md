@@ -20,6 +20,8 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Direkt aufgerufene Bildadressen (z.B. ein Link auf `foto.jpg`) werden als eigene Seite
   angezeigt, auf Fensterbreite verkleinert, darunter Format und Originalgröße.
 - Ganze Listen lassen sich über die Zeile „▾ Liste (n Einträge)“ einklappen.
+- Was eine Seite per `style="display:none"` oder `visibility:hidden` versteckt, erscheint eingeklappt
+  hinter „▸ Verborgen: …“ und lässt sich aufklappen; abschaltbar auf `about:config`.
 - Formulare (Text, Passwort, Ankreuz-/Optionsfelder, Auswahllisten, Textbereiche) lassen sich
   ausfüllen und per GET oder POST abschicken. Kein Datei-Upload.
 - Tabs: mehrere Seiten in einem Fenster, jede mit eigenem Verlauf. Links öffnen per

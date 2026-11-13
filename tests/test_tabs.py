@@ -217,6 +217,25 @@ class TabsTest(unittest.TestCase):
         self.assertFalse(self.app.find_visible)
         self.assertEqual(text.tag_ranges("find"), ())
 
+    def test_hidden_content_collapsed_until_clicked(self):
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        tab._show(render_html('<p>Vorher <span style="display:none">Geheimtext</span> nachher</p>'
+                              '<form><input name="hp" style="display:none"></form>', "https://a.de/",
+                              fold_hidden=True))
+        self.update()
+        text = tab.view.text
+        field = text.window_names()[0]
+        elided = lambda: text.tag_cget("fold:1", "elide") == "1" and "fold:1" in text.tag_names(text.index(field))
+        self.assertTrue(elided())   # Honeypot-Feld liegt im eingeklappten Bereich
+        self.assertEqual(tab.view.find("Geheimtext"), (1, 1))   # nur der Hinweis in der Schalterzeile
+        self.assertEqual(tab.view.find("nachher"), (1, 1))
+        tab.view.toggle_fold("toggle:1")
+        self.update()
+        self.assertFalse(elided())
+        tab.view.toggle_fold("toggle:0")
+        self.assertEqual(tab.view.find("Geheimtext"), (1, 2))
+
     def test_images_replace_placeholders(self):
         import io
         from PIL import Image

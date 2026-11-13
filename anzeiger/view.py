@@ -285,7 +285,8 @@ class PageView(ttk.Frame):
         `collapse_lists`/`collapse_sublists`: ganze Listen bzw. Unterlisten eingeklappt zeigen.
         """
         self.clear()
-        collapsed = {"list": collapse_lists, "sublist": collapse_sublists}
+        # Verborgene Inhalte sind immer eingeklappt; ob es sie gibt, entscheidet das Layout.
+        collapsed = {"list": collapse_lists, "sublist": collapse_sublists, "hidden": True}
         text = self.text
         text.configure(state="normal")
         batch: list = []
@@ -311,10 +312,12 @@ class PageView(ttk.Frame):
                     batch.extend((toggle, (tag, f"toggle:{op.fold}", "dim") + self._tags(op.style)[:1]))
                 batch.extend((label, (tag,) + self._tags(op.style)[:1]))
             elif isinstance(op, ListToggleOp):
-                symbol = COLLAPSED if collapse_lists else EXPANDED
+                symbol = COLLAPSED if collapsed.get(op.kind) else EXPANDED
                 tags = self._tags(op.style)
                 toggle = f"toggle:{op.fold}"
-                batch.extend((f"{symbol} ", tags + (toggle, "dim"), op.label, tags + (toggle,), "\n", tags))
+                batch.extend((f"{symbol} ", tags + (toggle, "dim"), op.label, tags + (toggle,)))
+                if not op.inline:
+                    batch.extend(("\n", tags))
             elif isinstance(op, FoldStartOp):
                 flush()
                 self._fold_kinds[str(op.fold)] = op.kind
@@ -646,7 +649,8 @@ class PageView(ttk.Frame):
     # -- Maus und Tastatur ------------------------------------------------------
 
     def toggle_fold(self, fold: str) -> None:
-        """Klappt eine Liste bzw. die Unterlisten eines Eintrags ein oder aus (fold = "toggle:N")."""
+        """Klappt eine Liste, die Unterlisten eines Eintrags oder einen verborgenen Inhalt ein
+        oder aus (fold = "toggle:N")."""
         number = fold.split(":", 1)[1]
         start = self.text.tag_ranges(fold)[0]
         collapsed = self.text.get(start) == EXPANDED
@@ -672,7 +676,8 @@ class PageView(ttk.Frame):
             elif tag.startswith("toggle:"):
                 url = tag
                 kind = self._fold_kinds.get(tag.split(":", 1)[1])
-                info = t("layout.toggle_list") if kind == "list" else t("layout.toggle_sublist")
+                info = t({"list": "layout.toggle_list", "hidden": "layout.toggle_hidden"}
+                         .get(kind or "", "layout.toggle_sublist"))
             elif tag in self._infos:
                 info = self._infos[tag]
         return url, info

@@ -123,6 +123,9 @@ def config_page(ctx: PageContext | None = None) -> str:
 <p><input type="checkbox" name="lists" value="on"{_checked(s.lists_collapsed)}> {t("page.config.lists_collapsed")}</p>
 <p><input type="checkbox" name="sublists" value="on"{_checked(s.sublists_collapsed)}> {t("page.config.sublists_collapsed")}</p>
 <p>{t("page.config.lists_help")}</p>
+<h2>{t("page.config.hidden")}</h2>
+<p><input type="checkbox" name="hidden" value="on"{_checked(s.hidden_collapsed)}> {t("page.config.hidden_collapsed")}</p>
+<p>{t("page.config.hidden_help")}</p>
 <p><input type="submit" value="{html.escape(t("page.config.save"), quote=True)}"></p>
 </form>
 <h2>{t("page.config.stored_cookies")}</h2>

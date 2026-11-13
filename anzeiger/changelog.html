@@ -10,6 +10,35 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.11.0">0.11.0 – 13.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Von der Seite verborgene Inhalte erscheinen eingeklappt.</b> Der Anzeiger wertet
+      weiterhin kein CSS aus. Was eine Seite aber direkt am HTML-Element mit
+      <code>style="display:none"</code> oder <code>style="visibility:hidden"</code> versteckt, wird
+      jetzt nicht mehr wie normaler Inhalt angezeigt, sondern eingeklappt hinter einem Schalter.
+    <ul>
+      <li>Blöcke (Absätze, Abschnitte, Listeneinträge …) bekommen eine eigene Zeile
+          „▸ Verborgen: …“ mit den ersten rund 50 Zeichen ihres Textes; bei Elementen mitten im Text
+          steht der Schalter an Ort und Stelle im Satz. Ein Klick auf ▸ klappt den Inhalt auf, ▾
+          wieder zu. Es geht also nichts verloren, man sieht immer, dass dort etwas ist.</li>
+      <li>Typische Fälle: Bereiche, die eine Seite erst per Skript auf Klick zeigt („Mehr lesen“,
+          Antworten in FAQ-Listen), leere Anzeigenflächen, Anmeldedialoge – und Formularfelder,
+          die nur Spam-Programme ausfüllen sollen („Honeypots“). Solche Felder füllt man jetzt nicht
+          mehr versehentlich aus, wodurch Formulare sonst still als Spam verworfen werden können.</li>
+      <li>Neue Einstellung auf <code>about:config</code> im Abschnitt „Verborgene Inhalte“:
+          „Von der Seite verborgene Inhalte eingeklappt anzeigen“, standardmäßig an. Ohne Haken
+          verhält sich der Anzeiger wie bisher und zeigt diese Inhalte wie alles andere. Die
+          Einstellung gilt für Seiten, die nach dem Speichern geladen werden.</li>
+      <li>Grenzen: Erkannt wird nur das <code>style</code>-Attribut am Element selbst. Was eine Seite
+          über Klassen und Stylesheets versteckt, bleibt sichtbar, denn dafür müsste der Anzeiger
+          CSS laden und auswerten. In Tabellen, die als Raster dargestellt werden, lässt sich nichts
+          einklappen; dort erscheinen verborgene Inhalte wie bisher. Eingeklappte Inhalte werden
+          von der Suche (Strg+F) nicht gefunden, die Vorschau in der Schalterzeile schon.</li>
+      <li>Elemente mit dem HTML-Attribut <code>hidden</code> werden wie bisher ganz weggelassen.</li>
+    </ul>
+  </li>
+</ul>
+
 <h2 id="v0.10.1">0.10.1 – 13.11.2026 (Patch)</h2>
 <ul>
   <li><b>Behoben: Anzeiger friert nach dem Laden bilderreicher Seiten ein.</b> Bei Seiten wie

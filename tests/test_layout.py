@@ -2,7 +2,7 @@ import unittest
 
 from anzeiger.dom import parse_html
 from anzeiger.layout import (FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp, MarkerOp, RuleOp,
-                             TextOp, list_number, render_html)
+                             TextOp, hidden_by_style, list_number, render_html)
 
 URL = "http://example.org/dir/seite.html"
 
@@ -109,6 +109,43 @@ class LayoutTest(unittest.TestCase):
     def test_lists_in_grid_cells_not_foldable(self):
         ops = render_html("<table><tr><td><ul><li>a<ul><li>b</ul></ul><td>z</table>", URL).ops
         self.assertFalse(any(isinstance(op, (ListToggleOp, FoldStartOp)) for op in ops))
+
+    def hidden_toggles(self, source: str) -> list[tuple[str, bool]]:
+        ops = render_html(source, URL, fold_hidden=True).ops
+        return [(op.label, op.inline) for op in ops if isinstance(op, ListToggleOp) and op.kind == "hidden"]
+
+    def test_hidden_by_style(self):
+        el = lambda style: parse_html(f'<span style="{style}">x</span>').find("span")
+        self.assertTrue(hidden_by_style(el("display:none")))
+        self.assertTrue(hidden_by_style(el("color:red; DISPLAY : None !important")))
+        self.assertTrue(hidden_by_style(el("visibility: hidden")))
+        self.assertFalse(hidden_by_style(el("display:none; display:block")))   # letzte Angabe gilt
+        self.assertFalse(hidden_by_style(el("display:block")))
+        self.assertFalse(hidden_by_style(el("")))
+
+    def test_hidden_content_folded(self):
+        source = '<p>A <span style="display:none">geheim</span> B</p><div style="visibility:hidden"><p>Block</p></div>'
+        self.assertEqual(self.hidden_toggles(source), [("Verborgen: geheim", True), ("Verborgen: Block", False)])
+        ops = render_html(source, URL, fold_hidden=True).ops
+        folds = [(op.fold, op.kind) for op in ops if isinstance(op, FoldStartOp)]
+        self.assertEqual(folds, [(0, "hidden"), (1, "hidden")])
+        start = ops.index(next(op for op in ops if isinstance(op, FoldStartOp)))
+        self.assertEqual(ops[start + 1].text.strip(), "geheim")
+        self.assertIsInstance(ops[start + 2], FoldEndOp)
+        # Ohne die Einstellung bleibt alles wie bisher.
+        self.assertEqual(plain(source), "A geheim B\n\nBlock")
+
+    def test_hidden_fields_items_and_previews(self):
+        long = "Wort " * 20
+        self.assertEqual(self.hidden_toggles(f'<form><input name="hp" style="display:none"></form>'
+                                             f'<ul><li>a<li style="display:none">{long}</ul>'),
+                         [("Verborgen", True), ("Verborgen: " + ("Wort " * 10).strip() + " …", False)])
+        # Nichts Sichtbares darin oder schon innerhalb eines verborgenen Bereichs: kein Schalter.
+        self.assertEqual(self.hidden_toggles('<div style="display:none"><script>x()</script> '
+                                             '<input type="hidden" name="t"></div>'), [])
+        self.assertEqual(len(self.hidden_toggles('<div style="display:none">a<p style="display:none">b</p></div>')), 1)
+        # In Tabellenzellen (Raster) lässt sich nichts einklappen.
+        self.assertEqual(self.hidden_toggles('<table><tr><td><span style="display:none">x</span><td>y</table>'), [])
 
     def test_ordered_start_and_type(self):
         self.assertEqual(plain('<ol start="3" type="a"><li>x<li>y</ol>'), "c. x\nd. y")

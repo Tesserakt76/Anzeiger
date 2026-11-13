@@ -20,6 +20,8 @@ A simple web browser written in Python that shows web pages as plain text.
 - Image addresses opened directly (e.g. a link to `photo.jpg`) are shown as a page of their own,
   scaled down to the window width, with format and original size below.
 - Whole lists can be collapsed via the line “▾ List (n items)”.
+- Whatever a page hides with `style="display:none"` or `visibility:hidden` appears collapsed
+  behind “▸ Hidden: …” and can be expanded; can be turned off on `about:config`.
 - Forms (text, password, checkboxes, radio buttons, drop-down lists, text areas) can be
   filled in and sent via GET or POST. No file upload.
 - Tabs: several pages in one window, each with its own history. Middle-click or Ctrl+click

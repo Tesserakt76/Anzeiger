@@ -22,6 +22,7 @@ class Settings:
     cookies_enabled: bool = True       # Cookies annehmen und zurückschicken
     lists_collapsed: bool = False      # ganze Listen beim Laden eingeklappt
     sublists_collapsed: bool = False   # Unterlisten beim Laden eingeklappt
+    hidden_collapsed: bool = True      # per style versteckte Inhalte eingeklappt statt offen
     zoom: int = 100                    # Vergrößerung der Lupe in Prozent
     language: str = ""                 # Kürzel der Sprachdatei, "" = Systemsprache
 
