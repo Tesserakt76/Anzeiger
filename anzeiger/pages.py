@@ -1,5 +1,6 @@
 """Eingebaute Seiten (about:…): Startseite, Änderungsprotokoll, Einstellungen, Lesezeichen,
-Notizen, Fehlerseite und die Seite für direkt aufgerufene Bilder."""
+Notizen, Fehlerseite, Warnung vor unverschlüsselter Weiterleitung und die Seite für direkt
+aufgerufene Bilder."""
 
 from __future__ import annotations
 
@@ -291,3 +292,11 @@ def image_page(url: str, image_format: str, size: tuple[int, int], shown: tuple[
 def error_page(url: str, message: str) -> str:
     return (f"<title>{t('page.error.title')}</title><h1>{t('page.error.heading')}</h1>"
             f"<p><code>{html.escape(url)}</code></p><p>{html.escape(message)}</p>")
+
+
+def insecure_redirect_page(url: str, target: str) -> str:
+    """Warnung statt einer Weiterleitung von HTTPS auf HTTP, mit Link zum Weitergehen."""
+    return (f"<title>{t('page.insecure_redirect.title')}</title>"
+            f"<h1>{t('page.insecure_redirect.heading')}</h1>"
+            f"<p>{t('page.insecure_redirect.text', url=html.escape(url), target=html.escape(target))}</p>"
+            f'<p><a href="{html.escape(target)}">{t("page.insecure_redirect.continue")}</a></p>')

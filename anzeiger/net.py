@@ -28,6 +28,14 @@ class FetchError(Exception):
     pass
 
 
+class InsecureRedirect(FetchError):
+    """Eine HTTPS-Adresse leitet auf eine unverschlüsselte HTTP-Adresse weiter."""
+
+    def __init__(self, url: str) -> None:
+        super().__init__(t("net.insecure_redirect", url=url))
+        self.url = url
+
+
 @dataclass
 class Response:
     url: str
@@ -44,6 +52,8 @@ class _RedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if urlsplit(newurl).scheme.lower() not in ALLOWED_SCHEMES:
             raise FetchError(t("net.redirect_unsupported", url=newurl))
+        if is_downgrade(req.full_url, newurl):
+            raise InsecureRedirect(newurl)
         new = super().redirect_request(req, fp, code, msg, headers, newurl)
         if new is not None:
             # Nachgeladene Inhalte bleiben auch nach einer Weiterleitung nachgeladen.
@@ -151,6 +161,11 @@ def site_domain(host: str) -> str:
     if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _SECOND_LEVEL:
         return ".".join(labels[-3:])
     return ".".join(labels[-2:])
+
+
+def is_downgrade(from_url: str, to_url: str) -> bool:
+    """True, wenn der Schritt von `from_url` nach `to_url` die Verschlüsselung verliert."""
+    return urlsplit(from_url).scheme.lower() == "https" and urlsplit(to_url).scheme.lower() == "http"
 
 
 def same_server(url_a: str, url_b: str) -> bool:

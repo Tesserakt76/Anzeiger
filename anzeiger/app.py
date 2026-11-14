@@ -19,7 +19,7 @@ from . import bookmarks, forms, i18n, images, net, notes
 from .i18n import keys, t, tn
 from .layout import FieldOp, ImageOp, Page, render_html, render_text
 from .pages import (BOOKMARKS_URL, CONFIG_URL, HOME_URL, NOTES_URL, PageContext, error_page,
-                    image_page, internal_page, internal_url, is_internal)
+                    image_page, insecure_redirect_page, internal_page, internal_url, is_internal)
 from .settings import ZOOM_LEVELS, Settings, default_path, zoom_step
 
 if TYPE_CHECKING:
@@ -48,6 +48,7 @@ class Tab:
         self.current_url: str | None = None
         self.page: Page | None = None
         self.address = ""        # Inhalt der Adresszeile, wenn der Tab sichtbar ist
+        self.secure: bool | None = None   # Seite per HTTPS (True) oder HTTP (False) geladen
         self.status_text = ""
         self.generation = 0
         self.loading = False
@@ -190,6 +191,7 @@ class Tab:
         self.generation += 1
         generation = self.generation
         self.loading = True
+        self.secure = None
         self.set_address(url)
         self.set_status(t("app.loading", url=url))
         self._changed()
@@ -213,6 +215,8 @@ class Tab:
                     response = net.fetch(url)
                 page = self._build_page(response, columns, max_width, fold_hidden)
                 results.put((self, generation, "page", (url, page)))
+            except net.InsecureRedirect as error:
+                results.put((self, generation, "insecure-redirect", (url, error.url)))
             except Exception as error:  # Fehler als Seite anzeigen
                 results.put((self, generation, "error", (url, str(error) or type(error).__name__)))
 
@@ -256,9 +260,19 @@ class Tab:
         elif kind == "error":
             url, message = payload
             self.loading = False
+            self.secure = None
             self.current_url = url
             self._show(render_html(error_page(url, message), url))
             self.set_status(message)
+            self._changed()
+        elif kind == "insecure-redirect":
+            # Wie eine Fehlerseite, aber mit Link, um der Weiterleitung bewusst zu folgen.
+            url, target = payload
+            self.loading = False
+            self.secure = None
+            self.current_url = url
+            self._show(render_html(insecure_redirect_page(url, target), url))
+            self.set_status(t("net.insecure_redirect", url=target))
             self._changed()
         elif kind == "image":
             self.view.set_image(*payload)
@@ -271,6 +285,8 @@ class Tab:
         fragment = urlsplit(requested).fragment
         url = page.url + ("#" + fragment if fragment and "#" not in page.url else "")
         self.current_url = url
+        scheme = urlsplit(page.url).scheme
+        self.secure = True if scheme == "https" else False if scheme == "http" else None
         if 0 <= self.position < len(self.history):
             self.history[self.position] = url
         self.set_address(url)
@@ -350,6 +366,11 @@ class App:
         self.home_button = ttk.Button(bar, text="⌂", width=3, command=self.home)
         self.reload_button = ttk.Button(bar, text="↻", width=3, command=lambda: self.tab.reload())
         self.url_var = tk.StringVar()
+        self.lock_icons = {None: tk.PhotoImage(master=root, width=16, height=16),
+                           True: _lock_icon(root, closed=True), False: _lock_icon(root, closed=False)}
+        self.lock_label = ttk.Label(bar, image=self.lock_icons[None])
+        self.lock_label.bind("<Enter>", lambda _e: self.on_hover(self._lock_text()))
+        self.lock_label.bind("<Leave>", lambda _e: self.on_hover(None))
         self.entry = ttk.Entry(bar, textvariable=self.url_var)
         self.star_button = ttk.Button(bar, text="☆", width=3, command=self.toggle_bookmark)
         self.go_button = ttk.Button(bar, text=t("app.go"), command=self.go)
@@ -366,6 +387,7 @@ class App:
         self.forward_button.pack(side="left", padx=(2, 0))
         self.home_button.pack(side="left", padx=(2, 0))
         self.reload_button.pack(side="left", padx=(2, 6))
+        self.lock_label.pack(side="left", padx=(0, 4))
         self.entry.pack(side="left", fill="x", expand=True)
         self.star_button.pack(side="left", padx=(2, 0))
         self.go_button.pack(side="left", padx=(6, 0))
@@ -574,6 +596,7 @@ class App:
         self.status.set(tab.status_text)
         self._update_buttons()
         self._update_star()
+        self.lock_label.configure(image=self.lock_icons[tab.secure])
         title = tab.page.title if tab.page is not None and tab.page.title else ""
         self.root.title(t("app.window_title", title=title) if title else "Anzeiger")
 
@@ -1001,6 +1024,10 @@ class App:
     def on_hover(self, message: str | None) -> None:
         self.status.set(message if message else self.tab.status_text)
 
+    def _lock_text(self) -> str | None:
+        secure = self.tab.secure
+        return None if secure is None else t("app.secure") if secure else t("app.insecure")
+
     def _set_status(self, text: str) -> None:
         if self._tabs:
             self.tab.set_status(text)
@@ -1036,6 +1063,28 @@ def _magnifier_icon(root: tk.Misc, size: int = 16) -> tk.PhotoImage:
                       and abs(x - y) <= 1 and max(x, y) < size - 1)
             if ring or handle:
                 image.put("#333333", (x, y))
+    return image
+
+
+def _lock_icon(root: tk.Misc, closed: bool, size: int = 16) -> tk.PhotoImage:
+    """Vorhängeschloss für die Adresszeile: geschlossen dunkel, offen (Bügel rechts frei) rot."""
+    image = tk.PhotoImage(master=root, width=size, height=size)
+    color = "#333333" if closed else "#c62828"
+    left, right, top = 3, size - 4, size // 2   # Schlosskörper
+    center, radius = (left + right) / 2, (right - left) / 2 - 1.5
+    arch = top - 3   # Mittelpunkt des Bogens
+    for y in range(size):
+        for x in range(size):
+            px, py = x + 0.5, y + 0.5
+            keyhole = x == int(center) and y in (top + 2, top + 3)
+            body = left <= x <= right and top <= y < size - 1 and not keyhole
+            bow = py <= arch and abs(math.hypot(px - center, py - arch) - radius) < 0.9
+            legs = arch < py < top and any(abs(px - side) < 0.9 for side in (center - radius, center + radius))
+            # Offenes Schloss: rechter Schenkel endet über dem Körper.
+            if not closed and px > center and py >= top - 3:
+                legs = False
+            if body or bow or legs:
+                image.put(color, (x, y))
     return image
 
 

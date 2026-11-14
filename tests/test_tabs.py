@@ -254,6 +254,34 @@ class TabsTest(unittest.TestCase):
         self.assertNotIn("[Bild", text.get("1.0", "end"))
         self.assertEqual(self.root.call("image", "width", text.image_names()[0]), 30)
 
+    def test_lock_shows_connection_security(self):
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        icons = self.app.lock_icons
+        self.assertIsNone(tab.secure)   # eingebaute Seite
+        self.assertEqual(self.app.lock_label.cget("image")[0], str(icons[None]))
+        tab._page_loaded("https://a.de/", render_html("<p>x</p>", "https://a.de/"))
+        self.assertIs(tab.secure, True)
+        self.assertEqual(self.app.lock_label.cget("image")[0], str(icons[True]))
+        self.assertIn("HTTPS", self.app._lock_text())
+        tab._page_loaded("https://a.de/", render_html("<p>x</p>", "http://a.de/"))   # weitergeleitet
+        self.assertIs(tab.secure, False)
+        self.assertEqual(self.app.lock_label.cget("image")[0], str(icons[False]))
+        self.assertIn("Unverschlüsselt", self.app._lock_text())
+        tab.receive("error", ("https://b.de/", "Zertifikat ungültig"))
+        self.assertIsNone(tab.secure)
+        self.assertIsNone(self.app._lock_text())
+
+    def test_insecure_redirect_shows_warning_with_link(self):
+        tab = self.app.tab
+        tab.receive("insecure-redirect", ("https://a.de/", "http://a.de/x"))
+        self.assertEqual(tab.current_url, "https://a.de/")
+        self.assertIsNone(tab.secure)
+        self.assertEqual(tab.page.title, "Unverschlüsselte Weiterleitung")
+        links = [op.style.href for op in tab.page.ops if getattr(op, "style", None) and op.style.href]
+        self.assertIn("http://a.de/x", links)
+        self.assertIn("http://a.de/x", self.app.status.get())
+
     def test_poll_leaves_rest_for_next_round(self):
         tab = self.app.tab
         for _ in range(3):

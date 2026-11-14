@@ -1,5 +1,6 @@
 import io
 import unittest
+import urllib.request
 
 from PIL import Image
 
@@ -17,6 +18,22 @@ class NetTest(unittest.TestCase):
             self.assertFalse(net.is_supported(url))
             with self.assertRaises(net.FetchError):
                 net.fetch(url)
+
+    def test_insecure_redirect(self):
+        self.assertTrue(net.is_downgrade("https://a.de/", "http://a.de/"))
+        self.assertTrue(net.is_downgrade("HTTPS://a.de/", "HTTP://b.de/"))
+        self.assertFalse(net.is_downgrade("http://a.de/", "https://a.de/"))
+        self.assertFalse(net.is_downgrade("https://a.de/", "https://b.de/"))
+        self.assertFalse(net.is_downgrade("http://a.de/", "http://b.de/"))
+        handler = net._RedirectHandler()
+        request = urllib.request.Request("https://a.de/alt")
+        with self.assertRaises(net.InsecureRedirect) as caught:
+            handler.redirect_request(request, None, 302, "Found", {}, "http://a.de/neu")
+        self.assertEqual(caught.exception.url, "http://a.de/neu")
+        self.assertIsInstance(caught.exception, net.FetchError)
+        new = handler.redirect_request(urllib.request.Request("http://a.de/alt"), None, 302, "Found",
+                                       {}, "https://a.de/neu")
+        self.assertEqual(new.full_url, "https://a.de/neu")
 
     def test_same_server(self):
         self.assertTrue(net.same_server("https://a.de/x", "http://A.de:8080/b.png"))

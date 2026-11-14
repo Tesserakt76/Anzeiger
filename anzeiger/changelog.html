@@ -10,6 +10,40 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.12.0">0.12.0 – 14.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Ein Schloss in der Adresszeile zeigt, ob die Verbindung verschlüsselt ist.</b> Links
+      neben der Adresse steht jetzt ein kleines Vorhängeschloss:
+    <ul>
+      <li><b>Geschlossenes dunkles Schloss</b> – die Seite kam über HTTPS. Die Verbindung ist
+          verschlüsselt, und das Zertifikat des Servers wurde geprüft (das hat der Anzeiger schon
+          immer getan; Seiten mit ungültigem Zertifikat werden gar nicht geladen).</li>
+      <li><b>Offenes rotes Schloss</b> – die Seite kam unverschlüsselt über HTTP. Andere im Netz
+          können mitlesen und die Seite unterwegs verändern.</li>
+      <li><b>Kein Schloss</b> – bei eingebauten Seiten (about:…), Fehlerseiten und solange eine
+          Seite noch lädt.</li>
+    </ul>
+    Maßgeblich ist die Adresse, von der die Seite tatsächlich kam, also nach allen Weiterleitungen.
+    Fährt man mit der Maus über das Schloss, erklärt die Statuszeile, was es bedeutet. Das Schloss
+    sagt nur etwas über die Seite selbst; nachgeladene Bilder vom selben Server können auch über
+    HTTP kommen.
+  </li>
+  <li><b>Neu: Warnung bei Weiterleitung von HTTPS auf HTTP.</b> Bisher folgte der Anzeiger einer
+      Weiterleitung von einer verschlüsselten auf eine unverschlüsselte Adresse stillschweigend –
+      man landete auf einer HTTP-Seite, obwohl man eine HTTPS-Adresse aufgerufen hatte. Jetzt hält
+      er an und zeigt eine Warnseite „Weiterleitung auf eine unverschlüsselte Adresse“ mit beiden
+      Adressen. Ein Klick auf „Trotzdem unverschlüsselt öffnen“ ruft die HTTP-Adresse auf, wenn man
+      das wirklich möchte.
+    <ul>
+      <li>Das gilt für jeden Schritt einer Kette von Weiterleitungen, auch für abgeschickte
+          Formulare. Weiterleitungen von HTTP auf HTTPS und innerhalb von HTTPS werden wie bisher
+          ohne Rückfrage befolgt.</li>
+      <li>Nachgeladene Bilder, deren Adresse von HTTPS auf HTTP weiterleitet, werden nicht geladen;
+          beim Überfahren des Platzhalters steht der Grund.</li>
+    </ul>
+  </li>
+</ul>
+
 <h2 id="v0.11.0">0.11.0 – 13.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Von der Seite verborgene Inhalte erscheinen eingeklappt.</b> Der Anzeiger wertet

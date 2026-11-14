@@ -35,6 +35,8 @@ opened_in_new_tab = "Opened in new tab: {url}"
 no_closed_tab = "There is no closed tab to restore."
 unknown_action = "Unknown action."
 unsupported_type = "Content type “{type}” is not supported."
+secure = "Encrypted connection (HTTPS), the server's certificate was verified."
+insecure = "Unencrypted connection (HTTP) – others can read along and change the content."
 
 [tab_menu]
 reload = "Reload"
@@ -101,6 +103,7 @@ page_scaled = " – scaled down to {width}×{height}"
 redirect_unsupported = "Redirect to an unsupported protocol: {url}"
 only_http = "Only HTTP and HTTPS are supported."
 connection_failed = "Connection failed: {error}"
+insecure_redirect = "Redirect from HTTPS to unencrypted HTTP not followed: {url}"
 read_failed = "Error while reading: {error}"
 too_large = "Response too large (over {mb} MB)."
 unpack_failed = "Cannot decompress response: {error}"
@@ -273,6 +276,15 @@ help = """Save with the button or <b>Ctrl+S</b>. Unsaved changes are also saved
 automatically as soon as you leave the page, close the tab or quit
 Anzeiger. “Discard changes” restores the last saved version."""
 location = "The notes are stored as plain text in <code>{path}</code>."
+
+[page.insecure_redirect]
+title = "Unencrypted redirect"
+heading = "Redirect to an unencrypted address"
+text = """The address <code>{url}</code>, requested over an encrypted connection (HTTPS), redirects
+to the <b>unencrypted</b> address <code>{target}</code>. There, others could read what you see and
+send, and change the page on its way. That is why the Anzeiger did not follow the redirect on
+its own."""
+continue = "Open unencrypted anyway"
 
 [page.error]
 title = "Error"

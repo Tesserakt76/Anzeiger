@@ -35,6 +35,8 @@ opened_in_new_tab = "In neuem Tab geöffnet: {url}"
 no_closed_tab = "Es gibt keinen geschlossenen Tab zum Wiederherstellen."
 unknown_action = "Unbekannte Aktion."
 unsupported_type = "Inhaltstyp „{type}“ wird nicht unterstützt."
+secure = "Verschlüsselte Verbindung (HTTPS), das Zertifikat des Servers wurde geprüft."
+insecure = "Unverschlüsselte Verbindung (HTTP) – andere können mitlesen und Inhalte verändern."
 
 [tab_menu]
 reload = "Neu laden"
@@ -101,6 +103,7 @@ page_scaled = " – verkleinert auf {width}×{height}"
 redirect_unsupported = "Weiterleitung auf nicht unterstütztes Protokoll: {url}"
 only_http = "Nur HTTP und HTTPS werden unterstützt."
 connection_failed = "Verbindung fehlgeschlagen: {error}"
+insecure_redirect = "Weiterleitung von HTTPS auf unverschlüsseltes HTTP nicht befolgt: {url}"
 read_failed = "Fehler beim Lesen: {error}"
 too_large = "Antwort zu groß (über {mb} MB)."
 unpack_failed = "Antwort nicht entpackbar: {error}"
@@ -275,6 +278,15 @@ help = """Speichern mit dem Knopf oder <b>Strg+S</b>. Ungespeicherte Änderungen
 automatisch gesichert, sobald die Seite verlassen, der Tab geschlossen oder der Anzeiger
 beendet wird. „Änderungen verwerfen“ stellt den zuletzt gespeicherten Stand wieder her."""
 location = "Die Notizen liegen als reiner Text in <code>{path}</code>."
+
+[page.insecure_redirect]
+title = "Unverschlüsselte Weiterleitung"
+heading = "Weiterleitung auf eine unverschlüsselte Adresse"
+text = """Die verschlüsselt (HTTPS) aufgerufene Adresse <code>{url}</code> leitet weiter auf die
+<b>unverschlüsselte</b> Adresse <code>{target}</code>. Dort könnten andere mitlesen, was du siehst
+und abschickst, und die Seite unterwegs verändern. Der Anzeiger ist der Weiterleitung deshalb
+nicht von selbst gefolgt."""
+continue = "Trotzdem unverschlüsselt öffnen"
 
 [page.error]
 title = "Fehler"

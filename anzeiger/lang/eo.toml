@@ -35,6 +35,8 @@ opened_in_new_tab = "Malfermita en nova langeto: {url}"
 no_closed_tab = "Ne estas fermita langeto por remalfermi."
 unknown_action = "Nekonata ago."
 unsupported_type = "Enhavtipo „{type}“ ne estas subtenata."
+secure = "Ĉifrita konekto (HTTPS), la atestilo de la servilo estis kontrolita."
+insecure = "Neĉifrita konekto (HTTP) – aliaj povas kunlegi kaj ŝanĝi la enhavon."
 
 [tab_menu]
 reload = "Reŝargi"
@@ -101,6 +103,7 @@ page_scaled = " – malgrandigita al {width}×{height}"
 redirect_unsupported = "Alidirekto al nesubtenata protokolo: {url}"
 only_http = "Nur HTTP kaj HTTPS estas subtenataj."
 connection_failed = "Konekto malsukcesis: {error}"
+insecure_redirect = "Alidirekto de HTTPS al neĉifrita HTTP ne sekvita: {url}"
 read_failed = "Eraro dum legado: {error}"
 too_large = "Respondo tro granda (pli ol {mb} MB)."
 unpack_failed = "Respondo ne malpakeblas: {error}"
@@ -273,6 +276,14 @@ help = """Konservu per la butono aŭ <b>Ctrl+S</b>. Nekonservitaj ŝanĝoj krome
 aŭtomate konservataj, kiam oni forlasas la paĝon, fermas la langeton aŭ fermas
 la Anzeiger. „Forĵeti ŝanĝojn“ restarigas la laste konservitan staton."""
 location = "La notoj troviĝas kiel simpla teksto en <code>{path}</code>."
+
+[page.insecure_redirect]
+title = "Neĉifrita alidirekto"
+heading = "Alidirekto al neĉifrita adreso"
+text = """La ĉifrite (HTTPS) petita adreso <code>{url}</code> alidirektas al la <b>neĉifrita</b>
+adreso <code>{target}</code>. Tie aliaj povus kunlegi, kion vi vidas kaj sendas, kaj ŝanĝi la
+paĝon survoje. Tial la Anzeiger ne mem sekvis la alidirekton."""
+continue = "Tamen malfermi neĉifrite"
 
 [page.error]
 title = "Eraro"

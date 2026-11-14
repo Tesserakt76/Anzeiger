@@ -5,6 +5,9 @@
 Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstellt.
 
 - Nur **HTTP** und **HTTPS** (auch bei Weiterleitungen).
+- Ein Schloss links der Adresszeile zeigt, ob die Seite verschlüsselt (HTTPS, dunkles Schloss)
+  oder unverschlüsselt (HTTP, offenes rotes Schloss) geladen wurde. Weiterleitungen von HTTPS
+  auf HTTP folgt der Anzeiger nicht von selbst, sondern zeigt eine Warnung mit Link.
 - Kein CSS, kein JavaScript, keine Popups.
 - Überschriften `h1`–`h6`, Absätze, Hervorhebungen, `pre`/`code`, Zitate,
   geordnete (`1.`, `a.`, `i.` …) und ungeordnete (`*`) Listen beliebig verschachtelt,

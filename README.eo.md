@@ -6,6 +6,9 @@ Simpla retumilo verkita en Python, kiu montras retpaĝojn kiel puran tekston.
 (*Anzeiger* estas germana vorto por „indikilo“ aŭ „gazeto“.)
 
 - Nur **HTTP** kaj **HTTPS** (ankaŭ ĉe alidirektoj).
+- Seruro maldekstre de la adreslinio montras, ĉu la paĝo estis ŝargita ĉifrite (HTTPS, malhela
+  seruro) aŭ neĉifrite (HTTP, malfermita ruĝa seruro). Alidirektojn de HTTPS al HTTP la Anzeiger
+  ne mem sekvas, sed montras averton kun ligilo.
 - Neniu CSS, neniu JavaScript, neniuj ŝprucfenestroj.
 - Titoloj `h1`–`h6`, alineoj, emfazoj, `pre`/`code`, citaĵoj,
   ordigitaj (`1.`, `a.`, `i.` …) kaj neordigitaj (`*`) listoj ajne ingitaj;

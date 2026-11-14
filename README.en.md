@@ -6,6 +6,9 @@ A simple web browser written in Python that shows web pages as plain text.
 (*Anzeiger* is German for “indicator” or “gazette”.)
 
 - **HTTP** and **HTTPS** only (also for redirects).
+- A lock left of the address bar shows whether the page was loaded encrypted (HTTPS, dark lock)
+  or unencrypted (HTTP, open red lock). Redirects from HTTPS to HTTP are not followed on their
+  own; a warning with a link is shown instead.
 - No CSS, no JavaScript, no popups.
 - Headings `h1`–`h6`, paragraphs, emphasis, `pre`/`code`, quotes,
   ordered (`1.`, `a.`, `i.` …) and unordered (`*`) lists nested to any depth;
