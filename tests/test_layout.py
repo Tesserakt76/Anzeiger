@@ -186,6 +186,18 @@ class LayoutTest(unittest.TestCase):
         text = plain("<table><tr><th>A</th><th>Bee</th></tr><tr><td>1</td><td>2</td></tr></table>")
         self.assertEqual(text.splitlines(), ["─── ─────", " A   Bee", "─── ─────", " 1   2", "─── ─────"])
 
+    def test_grid_table_links_images_from_same_server(self):
+        page = render_html('<table><tr><td><img src="bild.png" alt="Foto"><td><img src="/b.png">'
+                           '<td><img src="https://fremd.de/c.png"><td><a href="/ziel"><img src="d.png"></a>'
+                           '</table>', URL)
+        runs = {op.text: op.style for op in page.ops if isinstance(op, TextOp) and op.text.startswith("[")}
+        self.assertEqual(runs["[Foto]"].href, "http://example.org/dir/bild.png")
+        self.assertFalse(runs["[Foto]"].dim)
+        self.assertFalse(any(isinstance(op, ImageOp) for op in page.ops))   # Raster bleibt Text
+        styles = [op.style for op in page.ops if isinstance(op, TextOp) and op.text == "[Bild]"]
+        self.assertEqual([s.href for s in styles], ["http://example.org/b.png", None, "http://example.org/ziel"])
+        self.assertEqual([s.dim for s in styles], [False, True, True])
+
     def test_colspan(self):
         text = plain("<table><tr><td colspan=2>breit</td></tr><tr><td>a</td><td>b</td></tr></table>")
         self.assertEqual(text.splitlines(), ["───────", " breit", "─── ───", " a   b", "─── ───"])

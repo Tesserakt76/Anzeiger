@@ -20,6 +20,8 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Bilder (`img`) werden nur geladen, wenn sie auf **demselben Server** liegen (gleiche
   Domain, Subdomains zählen mit, z.B. `www.a.de` und `cdn.a.de`) und PNG, JPEG, GIF, BMP oder WebP sind.
   Sonst erscheint ein Platzhalter `[Bild: alt-Text]` mit Begründung beim Überfahren.
+  In Tabellen, die als Raster dargestellt werden, ist kein Platz für Bilder; dort ist der
+  Platzhalter eines Bildes vom selben Server ein Link zum Bild.
 - Direkt aufgerufene Bildadressen (z.B. ein Link auf `foto.jpg`) werden als eigene Seite
   angezeigt, auf Fensterbreite verkleinert, darunter Format und Originalgröße.
 - Ganze Listen lassen sich über die Zeile „▾ Liste (n Einträge)“ einklappen.

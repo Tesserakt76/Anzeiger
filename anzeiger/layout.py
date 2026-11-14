@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from urllib.parse import urljoin
 
+from . import net
 from .dom import Element, parse_html
 from .forms import FormInfo, normalize_enctype, normalize_method
 from .i18n import t, tn
@@ -871,7 +872,12 @@ class Renderer:
                 text = op.text + (" " if isinstance(op, MarkerOp) else "")
                 runs.append((text, op.style))
             elif isinstance(op, ImageOp):
-                runs.append((f"[{op.alt}]" if op.alt else t("image.table"), replace(op.style, dim=True)))
+                label = f"[{op.alt}]" if op.alt else t("image.table")
+                if op.src and op.style.href is None and net.same_server(self.page_url, op.src):
+                    # Ins Zeichenraster passt kein Bild; der Platzhalter führt stattdessen zum Bild.
+                    runs.append((label, replace(op.style, href=op.src)))
+                else:
+                    runs.append((label, replace(op.style, dim=True)))
             elif isinstance(op, RuleOp):
                 runs.append(("—", op.style))
         lines: list[list[tuple[str, Style]]] = [[]]

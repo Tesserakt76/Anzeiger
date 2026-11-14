@@ -20,6 +20,8 @@ A simple web browser written in Python that shows web pages as plain text.
 - Images (`img`) are only loaded if they are on the **same server** (same domain,
   subdomains included, e.g. `www.a.de` and `cdn.a.de`) and are PNG, JPEG, GIF, BMP or WebP.
   Otherwise a placeholder `[Image: alt text]` appears, with the reason shown on hover.
+  Tables drawn as a grid have no room for images; there, the placeholder of an image from the
+  same server is a link to the image.
 - Image addresses opened directly (e.g. a link to `photo.jpg`) are shown as a page of their own,
   scaled down to the window width, with format and original size below.
 - Whole lists can be collapsed via the line “▾ List (n items)”.

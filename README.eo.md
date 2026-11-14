@@ -20,6 +20,8 @@ Simpla retumilo verkita en Python, kiu montras retpaĝojn kiel puran tekston.
 - Bildoj (`img`) estas ŝargataj nur, se ili troviĝas sur la **sama servilo** (sama domajno,
   subdomajnoj inkluzivitaj, ekz. `www.a.de` kaj `cdn.a.de`) kaj estas PNG, JPEG, GIF, BMP aŭ WebP.
   Alie aperas anstataŭaĵo `[Bildo: alt-teksto]`, kies kialon oni vidas ŝvebante super ĝi.
+  En tabeloj montrataj kiel krado ne estas loko por bildoj; tie la anstataŭaĵo de bildo de la
+  sama servilo estas ligilo al la bildo.
 - Rekte malfermitaj bildadresoj (ekz. ligilo al `foto.jpg`) estas montrataj kiel aparta paĝo,
   malgrandigitaj al la larĝo de la fenestro, kun formato kaj originala grandeco sube.
 - Tutaj listoj faldeblas per la linio „▾ Listo (n eroj)“.

@@ -803,10 +803,9 @@ class PageView(ttk.Frame):
                 label, action, enabled = entry
                 menu.add_command(label=label, command=action, state="normal" if enabled else "disabled")
         if entries:
-            try:
-                menu.tk_popup(event.x_root, event.y_root)
-            finally:
-                menu.grab_release()
+            # Ohne grab_release(): Unter X11 kehrt tk_popup sofort zurück, und erst die Sperre
+            # des Menüs sorgt dafür, dass ein Klick daneben oder Esc es wieder schließt.
+            menu.tk_popup(event.x_root, event.y_root)
         return "break"
 
     def _on_context_menu(self, event: tk.Event) -> str:

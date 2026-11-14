@@ -10,6 +10,27 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.14.0">0.14.0 – 14.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Bilder in Rastertabellen sind als Link erreichbar.</b> Tabellen mit mehreren Spalten
+      setzt der Anzeiger als Raster aus Festbreitenschrift; dazwischen ist kein Platz für Bilder.
+      Statt eines Bildes stand dort bisher nur ein grauer Platzhalter <code>[alt-Text]</code> bzw.
+      <code>[Bild]</code>, und das Bild war gar nicht zu sehen. Liegt das Bild auf demselben Server
+      wie die Seite, ist der Platzhalter jetzt ein Link zum Bild: Ein Klick zeigt es als eigene
+      Seite, Mittelklick oder Strg+Klick in einem neuen Tab. Das Raster bleibt dabei unverändert.
+    <ul>
+      <li>Steckt das Bild schon in einem Link, führt der Platzhalter wie bisher zu dessen Ziel.</li>
+      <li>Bilder von fremden Servern bleiben ein grauer Platzhalter ohne Link.</li>
+      <li>In Tabellen, die zeilenweise dargestellt werden (eine Spalte, verschachtelte Tabellen
+          oder Formularfelder), erscheinen Bilder wie bisher direkt in der Seite.</li>
+    </ul>
+  </li>
+  <li><b>Behoben: Kontextmenü ließ sich nicht schließen, ohne etwas auszuwählen.</b> War das
+      Rechtsklick-Menü in der Seite oder in einem Formularfeld einmal offen, blieb es stehen, bis man
+      einen Eintrag wählte – ein Klick daneben oder Esc schloss es nicht. Jetzt geht beides wieder,
+      wie beim Menü der Tabs.</li>
+</ul>
+
 <h2 id="v0.13.0">0.13.0 – 14.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Kontextmenü mit der rechten Maustaste.</b> Ein Rechtsklick in die Seite öffnet ein
