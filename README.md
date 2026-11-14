@@ -30,6 +30,9 @@ Ein einfacher Internet-Browser in Python, der Webseiten als reinen Text darstell
 - Tabs: mehrere Seiten in einem Fenster, jede mit eigenem Verlauf. Links öffnen per
   Mittelklick oder Strg+Klick im Hintergrund; geschlossene Tabs lassen sich mit
   Strg+Umschalt+T wieder öffnen. Rechtsklick auf einen Tab öffnet ein Menü.
+- Rechtsklick in die Seite öffnet ein Kontextmenü: markierten Text kopieren, Link in neuem Tab
+  öffnen, Bild herunterladen oder (wenn es verlinkt ist) in neuem Tab öffnen, Seitenquelltext
+  anzeigen (`view-source:`). In Textfeldern von Formularen: Kopieren und Einfügen.
 - Lesezeichen: Stern ☆ bzw. Strg+D, Menü „Lesezeichen“, Verwaltung auf `about:bookmarks`
   mit beliebig verschachtelten Ordnern (anlegen, umbenennen, verschieben, entfernen).
   Gespeichert in `~/.config/anzeiger/bookmarks.html` im Netscape-Bookmark-Format, das Chrome
@@ -131,6 +134,7 @@ Einstellungen, Lesezeichen, Notizen und eigene Sprachdateien bleiben pro Benutze
 | Strg+Tab / Strg+Umschalt+Tab | Nächster / vorheriger Tab |
 | Strg+1 … 8 / Strg+9   | Tab Nr. 1 … 8 / letzter Tab |
 | Mittel- oder Strg+Klick auf Link | Link in neuem Tab öffnen |
+| Rechtsklick in die Seite | Kontextmenü |
 | Enter in Textfeld     | Formular abschicken   |
 | Strg+F                | Auf der Seite suchen  |
 | F3 / Umschalt+F3      | Nächster / vorheriger Treffer |

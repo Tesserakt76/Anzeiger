@@ -15,6 +15,7 @@ try:   # Debian/Ubuntu: eigenes Paket python3-pil.imagetk
 except ImportError:
     ImageTk = None
 
+from . import net
 from .i18n import t
 from .layout import (BASE_SIZE, TEXT_KINDS, AnchorOp, FieldOp, FoldEndOp, FoldStartOp, ImageOp, ListToggleOp,
                      MarkerOp, Page, RuleOp, Style, TextOp)
@@ -32,6 +33,8 @@ MAX_MATCHES = 10000   # Treffer der Seitensuche, mehr werden nicht markiert
 Entries = list[tuple[str, str]]
 # on_submit(Formular-Index oder None, auslösender Knopf oder None, Name/Wert-Paare)
 SubmitCallback = Callable[[int | None, FieldOp | None, Entries], None]
+# Einträge eines Kontextmenüs: (Beschriftung, Aktion, aktiv); None ist ein Trennstrich
+MenuEntries = list[tuple[str, Callable[[], object], bool] | None]
 
 
 class _Field:
@@ -48,10 +51,14 @@ class PageView(ttk.Frame):
     def __init__(self, master: tk.Misc, on_link: Callable[[str], None],
                  on_hover: Callable[[str | None], None], on_submit: SubmitCallback,
                  on_link_new_tab: Callable[[str], None] | None = None,
-                 on_zoom: Callable[[int], None] | None = None, zoom: int = 100) -> None:
+                 on_zoom: Callable[[int], None] | None = None, zoom: int = 100,
+                 on_save_image: Callable[[str], None] | None = None,
+                 on_view_source: Callable[[], None] | None = None) -> None:
         super().__init__(master)
         self.on_link = on_link
         self.on_link_new_tab = on_link_new_tab
+        self.on_save_image = on_save_image
+        self.on_view_source = on_view_source
         self.on_zoom = on_zoom
         self.zoom = zoom   # Prozent
         self.on_hover = on_hover
@@ -91,6 +98,9 @@ class PageView(ttk.Frame):
         self._pressed: str | None = None
         self._hover: str | None = None
         self.images: list[tuple[int, ImageOp]] = []
+        self._shown_images: set[int] = set()   # Nummern der eingesetzten (geladenen) Bilder
+        self.page_url = ""
+        self.menu = tk.Menu(self, tearoff=False)
         self._fields: list[_Field] = []
         self._radio_groups: dict[tuple, tuple[tk.StringVar, str]] = {}
         self._fold_kinds: dict[str, str] = {}
@@ -119,6 +129,7 @@ class PageView(ttk.Frame):
         self.text.bind("<B2-Motion>", lambda _e: "break" if self._pressed else None)
         self.text.bind("<ButtonRelease-2>", self._on_middle_release)
         self.text.bind("<Configure>", self._on_resize)
+        self.text.bind("<Button-3>", self._on_context_menu)
         # Strg+Mausrad: Lupe (X11 meldet das Rad als Taste 4/5)
         self.text.bind("<Control-Button-4>", lambda _e: self._zoom_wheel(1))
         self.text.bind("<Control-Button-5>", lambda _e: self._zoom_wheel(-1))
@@ -273,6 +284,7 @@ class PageView(ttk.Frame):
         self._anchors.clear()
         self._style_tags.clear()
         self.images.clear()
+        self._shown_images.clear()
         for tag in self.text.tag_names():
             if tag.startswith(("href:", "info:", "img:", "fold:", "toggle:")):
                 self.text.tag_delete(tag)
@@ -285,6 +297,7 @@ class PageView(ttk.Frame):
         `collapse_lists`/`collapse_sublists`: ganze Listen bzw. Unterlisten eingeklappt zeigen.
         """
         self.clear()
+        self.page_url = page.url
         # Verborgene Inhalte sind immer eingeklappt; ob es sie gibt, entscheidet das Layout.
         collapsed = {"list": collapse_lists, "sublist": collapse_sublists, "hidden": True}
         text = self.text
@@ -374,6 +387,7 @@ class PageView(ttk.Frame):
             return
         photo = self._photo(ppm)
         self._photos.append(photo)
+        self._shown_images.add(number)
         start, end = ranges[0], ranges[1]
         tags = [t for t in self.text.tag_names(start) if not t.startswith(("info:", "dim"))]
         self.text.configure(state="normal")
@@ -517,6 +531,8 @@ class PageView(ttk.Frame):
             if op.readonly:
                 box.configure(state="disabled")
             box.bind("<Tab>", self._focus_next)
+            box.bind("<Button-3>", lambda e: self._field_menu(
+                e, bool(box.tag_ranges("sel")), box.cget("state") == "normal"))
 
             def reset() -> None:
                 state = box.cget("state")
@@ -560,6 +576,13 @@ class PageView(ttk.Frame):
             var.set(op.value)
             show_placeholder()
 
+        def context_menu(event: tk.Event) -> str:
+            # Die Markierung bleibt; nur der Platzhalter verschwindet vor dem Einfügen.
+            editable = not entry.instate(["readonly"]) and not entry.instate(["disabled"])
+            selected = entry.selection_present() and not placeholder["active"] and op.kind != "password"
+            return self._field_menu(event, selected, editable, before_paste=hide_placeholder)
+
+        entry.bind("<Button-3>", context_menu)
         entry.bind("<FocusIn>", hide_placeholder)
         entry.bind("<FocusOut>", lambda _e: show_placeholder())
         entry.bind("<Return>", lambda _e: self.submit(op.form, self._default_button(op.form)))
@@ -663,11 +686,18 @@ class PageView(ttk.Frame):
         self.text.insert(start, COLLAPSED if collapsed else EXPANDED, tags)
         self.text.configure(state="disabled")
 
-    def _target(self, event: tk.Event) -> tuple[str | None, str | None]:
-        """Liefert (Link oder Klappschalter, Hinweis) unter dem Mauszeiger."""
+    def _index_at(self, event: tk.Event) -> str | None:
+        """Textposition genau unter dem Mauszeiger (None neben dem Text)."""
         index = self.text.index(f"@{event.x},{event.y}")
         box = self.text.bbox(index)
         if not box or not (box[0] <= event.x < box[0] + box[2] and box[1] <= event.y < box[1] + box[3]):
+            return None
+        return index
+
+    def _target(self, event: tk.Event) -> tuple[str | None, str | None]:
+        """Liefert (Link oder Klappschalter, Hinweis) unter dem Mauszeiger."""
+        index = self._index_at(event)
+        if index is None:
             return None, None
         url = info = None
         for tag in self.text.tag_names(index):
@@ -721,6 +751,87 @@ class PageView(ttk.Frame):
         if url == pressed and self.on_link_new_tab:
             self.on_link_new_tab(url)
         return "break"
+
+    def _image_at(self, event: tk.Event) -> ImageOp | None:
+        """Eingesetztes Bild unter dem Mauszeiger (Platzhalter zählen nicht)."""
+        index = self._index_at(event)
+        if index is None:
+            return None
+        for tag in self.text.tag_names(index):
+            if tag.startswith("img:") and int(tag[4:]) in self._shown_images:
+                return self.images[int(tag[4:])][1]
+        return None
+
+    # -- Kontextmenü ------------------------------------------------------------
+
+    def context_entries(self, event: tk.Event) -> MenuEntries:
+        """Einträge für einen Rechtsklick in die Seite an der Stelle des Ereignisses."""
+        url, _ = self._target(event)
+        if url and url.startswith("toggle:"):
+            url = None
+        image = self._image_at(event)
+        groups: list[MenuEntries] = [[], [], []]
+        if self.text.tag_ranges("sel"):
+            groups[0].append((t("context.copy"), self.copy_selection, True))
+        if url and self.on_link_new_tab:
+            groups[1].append((t("context.open_link_new_tab"), lambda: self.on_link_new_tab(url), True))
+        if image is not None and image.src:
+            src = image.src
+            # Führt der Link woandershin als zum Bild, lässt sich das Bild auch selbst öffnen.
+            if url and url != src and self.on_link_new_tab:
+                groups[1].append((t("context.open_image_new_tab"), lambda: self.on_link_new_tab(src), True))
+            if self.on_save_image:
+                groups[1].append((t("context.save_image"), lambda: self.on_save_image(src), True))
+        if self.on_view_source and net.is_supported(self.page_url):
+            groups[2].append((t("context.view_source"), self.on_view_source, True))
+        entries: MenuEntries = []
+        for group in groups:
+            if group:
+                entries.extend(([None] if entries else []) + group)
+        return entries
+
+    def copy_selection(self) -> None:
+        self.text.event_generate("<<Copy>>")
+
+    def _popup(self, event: tk.Event, entries: MenuEntries) -> str:
+        menu = self.menu
+        menu.delete(0, "end")
+        for entry in entries:
+            if entry is None:
+                menu.add_separator()
+            else:
+                label, action, enabled = entry
+                menu.add_command(label=label, command=action, state="normal" if enabled else "disabled")
+        if entries:
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+        return "break"
+
+    def _on_context_menu(self, event: tk.Event) -> str:
+        return self._popup(event, self.context_entries(event))
+
+    def _field_menu(self, event: tk.Event, selected: bool, editable: bool,
+                    before_paste: Callable[[], None] | None = None) -> str:
+        """Kontextmenü eines Text- oder Eingabefelds: Kopieren und Einfügen."""
+        widget = event.widget
+        entries: MenuEntries = []
+        if selected:
+            entries.append((t("context.copy"), lambda: widget.event_generate("<<Copy>>"), True))
+        if editable:
+            try:
+                has_text = bool(widget.clipboard_get())
+            except tk.TclError:   # Zwischenablage leer oder kein Text
+                has_text = False
+
+            def paste() -> None:
+                widget.focus_set()
+                if before_paste is not None:
+                    before_paste()
+                widget.event_generate("<<Paste>>")
+            entries.append((t("context.paste"), paste, has_text))
+        return self._popup(event, entries)
 
     def _on_resize(self, _event: tk.Event | None) -> None:
         width = self.content_width()

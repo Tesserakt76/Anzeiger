@@ -73,6 +73,19 @@ image_button = "Bild-Knopf"
 button = "Knopf"
 choose_file = "Datei wählen …"
 
+[context]
+copy = "Kopieren"
+paste = "Einfügen"
+open_link_new_tab = "Link in neuem Tab öffnen"
+open_image_new_tab = "Bild in neuem Tab öffnen"
+save_image = "Bild herunterladen als …"
+save_title = "Bild speichern"
+image_file = "bild"
+saved = "Bild gespeichert: {path}"
+save_failed = "Bild nicht gespeichert ({error}): {url}"
+view_source = "Seitenquelltext anzeigen"
+source_title = "Quelltext: {url}"
+
 [layout]
 redirect = "Weiterleitung zu: "
 frame = "[Rahmen: {url}]"
@@ -194,6 +207,7 @@ reopen_tab = ["Strg+Umschalt+T", "Geschlossenen Tab wieder öffnen"]
 cycle_tabs = ["Strg+Tab / Strg+Umschalt+Tab", "Nächster / vorheriger Tab (auch Strg+Bild↓ / Strg+Bild↑)"]
 select_tab = ["Strg+1 … Strg+8, Strg+9", "Tab Nummer 1 bis 8, letzter Tab"]
 link_new_tab = ["Mittelklick oder Strg+Klick auf einen Link", "Link in neuem Tab im Hintergrund öffnen"]
+context_menu = ["Rechtsklick in die Seite", "Kontextmenü: Kopieren, Einfügen, Link oder Bild in neuem Tab, Bild herunterladen, Seitenquelltext"]
 submit = ["Enter in einem Textfeld", "Formular abschicken"]
 reload = ["F5", "Neu laden"]
 find = ["Strg+F, F3 / Umschalt+F3", "Auf der Seite suchen, nächster / vorheriger Treffer"]

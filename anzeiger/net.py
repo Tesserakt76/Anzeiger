@@ -21,6 +21,7 @@ MAX_PAGE_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 USER_AGENT = f"Anzeiger/{__version__} (einfacher Textbrowser)"
 ALLOWED_SCHEMES = ("http", "https")
+VIEW_SOURCE = "view-source:"   # vor einer http(s)-Adresse: Quelltext der Seite zeigen
 _accept_language = "de,en;q=0.7"
 
 
@@ -179,9 +180,19 @@ def without_fragment(url: str) -> str:
     return url.split("#", 1)[0]
 
 
+def source_target(url: str) -> str | None:
+    """Die Adresse hinter „view-source:“, falls es eine http(s)-Adresse ist, sonst None."""
+    if url[:len(VIEW_SOURCE)].lower() != VIEW_SOURCE:
+        return None
+    target = url[len(VIEW_SOURCE):]
+    return target if is_supported(target) else None
+
+
 def user_url(text: str) -> str:
     """Macht aus einer Benutzereingabe eine vollständige URL (Standard: https)."""
     text = text.strip()
+    if text[:len(VIEW_SOURCE)].lower() == VIEW_SOURCE:
+        return VIEW_SOURCE + user_url(text[len(VIEW_SOURCE):])
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", text):
         text = "https://" + text
     return text

@@ -11,6 +11,13 @@ class NetTest(unittest.TestCase):
     def test_user_url(self):
         self.assertEqual(net.user_url("example.org"), "https://example.org")
         self.assertEqual(net.user_url(" http://a.b/ "), "http://a.b/")
+        self.assertEqual(net.user_url("view-source:example.org"), "view-source:https://example.org")
+
+    def test_source_target(self):
+        self.assertEqual(net.source_target("view-source:https://a.de/x"), "https://a.de/x")
+        self.assertEqual(net.source_target("VIEW-SOURCE:http://a.de/"), "http://a.de/")
+        for url in ("https://a.de/", "view-source:about:start", "view-source:file:///etc/passwd"):
+            self.assertIsNone(net.source_target(url))
 
     def test_only_http(self):
         self.assertTrue(net.is_supported("HTTPS://x"))

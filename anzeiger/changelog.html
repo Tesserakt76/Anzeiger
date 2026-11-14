@@ -10,6 +10,37 @@ Schema <b>Major.Minor.Patch</b>:</p>
 <p><a href="about:start">Zurück zur Startseite</a></p>
 <hr>
 
+<h2 id="v0.13.0">0.13.0 – 14.11.2026 (Minor)</h2>
+<ul>
+  <li><b>Neu: Kontextmenü mit der rechten Maustaste.</b> Ein Rechtsklick in die Seite öffnet ein
+      Menü, dessen Einträge davon abhängen, was unter dem Mauszeiger liegt:
+    <ul>
+      <li><b>Kopieren</b> – wenn Text markiert ist (wie Strg+C).</li>
+      <li><b>Link in neuem Tab öffnen</b> – auf einem Link. Wie beim Mittelklick öffnet sich der neue
+          Tab im Hintergrund, rechts neben dem aktuellen.</li>
+      <li><b>Bild herunterladen als …</b> – auf einem geladenen Bild (also einem Bild vom selben
+          Server). Es öffnet sich ein Dialog zum Speichern, vorgeschlagen werden der Dateiname aus der
+          Bildadresse und der Ordner <code>~/Downloads</code>. Das Bild wird dafür noch einmal geladen
+          und unverändert im Originalformat gespeichert, nicht in der verkleinerten Fassung, die auf
+          der Seite steht. Die Statuszeile meldet, ob es geklappt hat.</li>
+      <li><b>Bild in neuem Tab öffnen</b> – auf einem geladenen Bild, das in einem Link steckt, der
+          woandershin führt als zum Bild selbst. Ein Linksklick würde dann der Link folgen; so kommt
+          man trotzdem an das Bild.</li>
+      <li><b>Seitenquelltext anzeigen</b> – auf jeder Webseite, nicht auf den eingebauten Seiten
+          (about:…). Der Quelltext erscheint in einem neuen Tab rechts daneben, in Festbreitenschrift
+          und genau so, wie der Server ihn schickt. Die Adresse dieses Tabs beginnt mit
+          <code>view-source:</code>; man kann sie auch selbst eintippen
+          (z.B. <code>view-source:example.org</code>), und F5 lädt den Quelltext neu. Der Quelltext
+          wird dafür noch einmal abgerufen; bei Seiten, die nach dem Abschicken eines Formulars
+          erschienen sind, zeigt er deshalb die Seite, die ein normaler Aufruf der Adresse liefert.</li>
+    </ul>
+    In Formularfeldern (einzeilige Textfelder und Textbereiche) hat der Rechtsklick ein eigenes Menü
+    mit <b>Kopieren</b> (bei markiertem Text) und <b>Einfügen</b> (ausgegraut, wenn die
+    Zwischenablage leer ist). Passwortfelder bieten kein Kopieren an, schreibgeschützte Felder kein
+    Einfügen. Die Tastenkürzel-Tabelle auf der Startseite nennt das Kontextmenü ebenfalls.
+  </li>
+</ul>
+
 <h2 id="v0.12.0">0.12.0 – 14.11.2026 (Minor)</h2>
 <ul>
   <li><b>Neu: Ein Schloss in der Adresszeile zeigt, ob die Verbindung verschlüsselt ist.</b> Links

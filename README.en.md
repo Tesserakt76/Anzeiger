@@ -30,6 +30,9 @@ A simple web browser written in Python that shows web pages as plain text.
 - Tabs: several pages in one window, each with its own history. Middle-click or Ctrl+click
   opens links in the background; closed tabs can be reopened with Ctrl+Shift+T.
   Right-clicking a tab opens a menu.
+- Right-clicking the page opens a context menu: copy selected text, open a link in a new tab,
+  save an image or (if it is linked) open it in a new tab, view the page source (`view-source:`).
+  In form text fields: copy and paste.
 - Bookmarks: star ☆ or Ctrl+D, menu “Bookmarks”, management on `about:bookmarks`
   with folders nested to any depth (create, rename, move, remove).
   Stored in `~/.config/anzeiger/bookmarks.html` in the Netscape bookmark format that Chrome
@@ -132,6 +135,7 @@ Settings, bookmarks, notes and personal language files stay per user in
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
 | Ctrl+1 … 8 / Ctrl+9   | Tab no. 1 … 8 / last tab |
 | Middle-click or Ctrl+click on link | Open link in new tab |
+| Right-click on the page | Context menu |
 | Enter in text field   | Submit form           |
 | Ctrl+F                | Find on page          |
 | F3 / Shift+F3         | Next / previous match |

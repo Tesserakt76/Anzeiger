@@ -73,6 +73,19 @@ image_button = "Image button"
 button = "Button"
 choose_file = "Choose file …"
 
+[context]
+copy = "Copy"
+paste = "Paste"
+open_link_new_tab = "Open link in new tab"
+open_image_new_tab = "Open image in new tab"
+save_image = "Save image as …"
+save_title = "Save image"
+image_file = "image"
+saved = "Image saved: {path}"
+save_failed = "Image not saved ({error}): {url}"
+view_source = "View page source"
+source_title = "Source: {url}"
+
 [layout]
 redirect = "Redirect to: "
 frame = "[Frame: {url}]"
@@ -194,6 +207,7 @@ reopen_tab = ["Ctrl+Shift+T", "Reopen closed tab"]
 cycle_tabs = ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous tab (also Ctrl+Page Down / Ctrl+Page Up)"]
 select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Tab number 1 to 8, last tab"]
 link_new_tab = ["Middle-click or Ctrl+click on a link", "Open link in a new background tab"]
+context_menu = ["Right-click on the page", "Context menu: copy, paste, link or image in new tab, save image, page source"]
 submit = ["Enter in a text field", "Submit form"]
 reload = ["F5", "Reload"]
 find = ["Ctrl+F, F3 / Shift+F3", "Find on page, next / previous match"]

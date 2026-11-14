@@ -11,9 +11,10 @@ import tkinter as tk
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from importlib import resources
-from tkinter import messagebox, ttk
+from pathlib import Path, PurePosixPath
+from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from . import bookmarks, forms, i18n, images, net, notes
 from .i18n import keys, t, tn
@@ -41,7 +42,8 @@ class Tab:
         self.app = app
         self.view = PageView(app.notebook, on_link=self.follow_link, on_hover=app.on_hover,
                              on_submit=self.submit_form, on_link_new_tab=app.open_in_new_tab,
-                             on_zoom=app.zoom_step, zoom=app.settings.zoom)
+                             on_zoom=app.zoom_step, zoom=app.settings.zoom,
+                             on_save_image=self.save_image, on_view_source=self.view_source)
         app.bind_tab_keys(self.view.text)
         self.history: list[str] = []
         self.position = -1
@@ -136,6 +138,39 @@ class Tab:
         self.generation += 1
         self.view.destroy()
 
+    def view_source(self) -> None:
+        """Quelltext der angezeigten Seite in einem neuen Tab rechts daneben."""
+        if self.page is not None and net.is_supported(self.page.url):
+            self.app.new_tab(net.VIEW_SOURCE + net.without_fragment(self.page.url), after=self)
+
+    def save_image(self, src: str) -> None:
+        """Fragt nach einem Dateinamen und speichert das Bild unverändert (Originalformat)."""
+        name = PurePosixPath(unquote(urlsplit(src).path)).name or t("context.image_file")
+        downloads = Path.home() / "Downloads"
+        path = filedialog.asksaveasfilename(parent=self.app.root, title=t("context.save_title"),
+                                            initialfile=name,
+                                            initialdir=downloads if downloads.is_dir() else Path.home())
+        if not path:
+            return
+        first_party = self.page.url if self.page is not None else None
+        results = self.app.results
+        self.set_status(t("image.loading", url=src))
+
+        def work() -> None:
+            try:
+                response = net.fetch(src, accept="image/*", max_bytes=net.MAX_IMAGE_BYTES,
+                                     first_party=first_party)
+                if response.status >= 400:
+                    raise net.FetchError(f"HTTP {response.status}")
+                Path(path).write_bytes(response.body)
+                message = t("context.saved", path=path)
+            except Exception as error:
+                message = t("context.save_failed", error=str(error) or type(error).__name__, url=src)
+            # Die Meldung gilt auch, wenn der Tab inzwischen eine andere Seite zeigt.
+            results.put((self, self.generation, "status", (message,)))
+
+        self.app.pool.submit(work)
+
     # -- Formulare --------------------------------------------------------------
 
     def submit_form(self, form_index: int | None, submitter: FieldOp | None,
@@ -204,6 +239,7 @@ class Tab:
         columns = self.app.columns()
         max_width = self.app.content_width()
         fold_hidden = self.app.settings.hidden_collapsed
+        source = net.source_target(url)
         results = self.app.results
 
         def work() -> None:
@@ -211,9 +247,14 @@ class Tab:
                 if submission is not None:
                     response = net.fetch(url, data=submission.body, content_type=submission.content_type,
                                          from_page=from_page)
+                elif source is not None:
+                    response = net.fetch(source)
                 else:
                     response = net.fetch(url)
-                page = self._build_page(response, columns, max_width, fold_hidden)
+                if source is not None:
+                    page = self._source_page(response)
+                else:
+                    page = self._build_page(response, columns, max_width, fold_hidden)
                 results.put((self, generation, "page", (url, page)))
             except net.InsecureRedirect as error:
                 results.put((self, generation, "insecure-redirect", (url, error.url)))
@@ -238,6 +279,17 @@ class Tab:
                                response.url)
         if response.status >= 400 and not page.title:
             page.title = f"{response.status} {response.reason}"
+        return page
+
+    @staticmethod
+    def _source_page(response: net.Response) -> Page:
+        """Antwort als unveränderter Quelltext (view-source:), Bilder und Ähnliches nicht."""
+        url = net.VIEW_SOURCE + response.url
+        ctype = response.content_type
+        if not (ctype.startswith("text/") or ctype.endswith(("xml", "json", "javascript"))):
+            return render_html(error_page(url, t("app.unsupported_type", type=ctype)), url)
+        page = render_text(net.decode_body(response.body, response.charset), url)
+        page.title = t("context.source_title", url=response.url)
         return page
 
     @staticmethod
@@ -274,6 +326,8 @@ class Tab:
             self._show(render_html(insecure_redirect_page(url, target), url))
             self.set_status(t("net.insecure_redirect", url=target))
             self._changed()
+        elif kind == "status":
+            self.set_status(*payload)
         elif kind == "image":
             self.view.set_image(*payload)
         elif kind == "image-error":
@@ -285,7 +339,7 @@ class Tab:
         fragment = urlsplit(requested).fragment
         url = page.url + ("#" + fragment if fragment and "#" not in page.url else "")
         self.current_url = url
-        scheme = urlsplit(page.url).scheme
+        scheme = urlsplit(net.source_target(page.url) or page.url).scheme
         self.secure = True if scheme == "https" else False if scheme == "http" else None
         if 0 <= self.position < len(self.history):
             self.history[self.position] = url
@@ -466,7 +520,7 @@ class App:
 
     @staticmethod
     def allowed(url: str) -> bool:
-        return net.is_supported(url) or is_internal(url)
+        return net.is_supported(url) or is_internal(url) or net.source_target(url) is not None
 
     def home(self) -> None:
         self.tab.navigate(HOME_URL)

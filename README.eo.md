@@ -30,6 +30,9 @@ Simpla retumilo verkita en Python, kiu montras retpaĝojn kiel puran tekston.
 - Langetoj: pluraj paĝoj en unu fenestro, ĉiu kun propra historio. Meza klako aŭ Ctrl+klako
   malfermas ligilojn fone; fermitajn langetojn eblas remalfermi per Ctrl+Shift+T.
   Dekstra klako sur langeto malfermas menuon.
+- Dekstra klako en la paĝo malfermas kuntekstan menuon: kopii markitan tekston, malfermi ligilon
+  en nova langeto, elŝuti bildon aŭ (se ĝi estas ligita) malfermi ĝin en nova langeto, montri la
+  fontotekston (`view-source:`). En tekstokampoj de formularoj: kopii kaj alglui.
 - Legosignoj: stelo ☆ aŭ Ctrl+D, menuo „Legosignoj“, administrado en `about:bookmarks`
   kun ajne ingitaj dosierujoj (krei, renomi, movi, forigi).
   Konservitaj en `~/.config/anzeiger/bookmarks.html` en la legosigna formato de Netscape, kiun
@@ -132,6 +135,7 @@ Agordoj, legosignoj, notoj kaj propraj lingvodosieroj restas por ĉiu uzanto en
 | Ctrl+Tab / Ctrl+Shift+Tab | Sekva / antaŭa langeto |
 | Ctrl+1 … 8 / Ctrl+9   | Langeto n-ro 1 … 8 / lasta langeto |
 | Meza klako aŭ Ctrl+klako sur ligilo | Malfermi ligilon en nova langeto |
+| Dekstra klako en la paĝo | Kunteksta menuo |
 | Enigklavo en tekstkampo | Sendi formularon    |
 | Ctrl+F                | Serĉi en la paĝo      |
 | F3 / Shift+F3         | Sekva / antaŭa trovo  |

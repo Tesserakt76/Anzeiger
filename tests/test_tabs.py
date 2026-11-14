@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 import tkinter as tk
 import unittest
 from unittest import mock
@@ -281,6 +282,124 @@ class TabsTest(unittest.TestCase):
         links = [op.style.href for op in tab.page.ops if getattr(op, "style", None) and op.style.href]
         self.assertIn("http://a.de/x", links)
         self.assertIn("http://a.de/x", self.app.status.get())
+
+    def wait_loaded(self, tab):
+        for _ in range(200):
+            self.app._poll()
+            self.update()
+            if not tab.loading:
+                return
+            time.sleep(0.01)
+        self.fail("Seite lädt nicht fertig")
+
+    def picture(self):
+        import io
+        from PIL import Image
+        from anzeiger import images
+        out = io.BytesIO()
+        Image.new("RGB", (8, 8), (0, 0, 255)).save(out, "PNG")
+        return out.getvalue(), images.decode_image(out.getvalue())[0]
+
+    def test_context_menu_entries(self):
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        view, text = tab.view, tab.view.text
+        tab._show(render_html('<p>Text <a href="/x">Link</a> <a href="/gross"><img src="/b.png"></a>'
+                              ' <img src="/c.png"> <img src="/d.png" alt="D"></p>', "https://a.de/"))
+        _png, data = self.picture()
+        view.set_image(0, data)
+        view.set_image(1, data)
+        opened = []
+        view.on_link_new_tab = opened.append
+
+        def labels(index):
+            with mock.patch.object(view, "_index_at", return_value=index):
+                self.entries = view.context_entries(None)
+            return [entry and entry[0] for entry in self.entries]
+
+        source = "Seitenquelltext anzeigen"
+        self.assertEqual(labels("1.0"), [source])
+        self.assertEqual(labels(None), [source])   # neben dem Text
+        text.tag_add("sel", "1.0", "1.4")
+        self.assertEqual(labels("1.0"), ["Kopieren", None, source])
+        view.copy_selection()
+        self.assertEqual(self.root.clipboard_get(), "Text")
+        text.tag_remove("sel", "1.0", "end")
+        link = text.tag_ranges("link")[0]
+        self.assertEqual(labels(link), ["Link in neuem Tab öffnen", None, source])
+        self.entries[0][1]()
+        self.assertEqual(opened, ["https://a.de/x"])
+        self.assertEqual(labels(text.tag_ranges("img:0")[0]),
+                         ["Link in neuem Tab öffnen", "Bild in neuem Tab öffnen", "Bild herunterladen als …",
+                          None, source])
+        self.entries[1][1]()
+        self.assertEqual(opened[-1], "https://a.de/b.png")
+        self.assertEqual(labels(text.tag_ranges("img:1")[0]), ["Bild herunterladen als …", None, source])
+        self.assertEqual(labels(text.tag_ranges("img:2")[0]), [source])   # Platzhalter, nicht geladen
+        tab.navigate(CONFIG_URL)
+        self.assertEqual(labels("1.0"), [])   # eingebaute Seite: kein Quelltext
+
+    def test_field_context_menu(self):
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        tab._show(render_html('<form><input name="q" value="abc"><input type="password" name="p" value="geheim">'
+                              '<input name="r" value="fest" readonly></form>', "https://a.de/"))
+        self.update()
+        query, password, fixed = (tab.view.nametowidget(name) for name in tab.view.text.window_names())
+        self.root.clipboard_clear()
+        self.root.clipboard_append("neu")
+        shown = []
+        with mock.patch.object(tab.view, "_popup", lambda _e, entries: shown.append(entries)):
+            for widget in (query, password, fixed):
+                widget.selection_range(0, "end")
+                widget.event_generate("<Button-3>", x=2, y=2)
+        self.assertEqual([[entry[0] for entry in entries] for entries in shown],
+                         [["Kopieren", "Einfügen"], ["Einfügen"], ["Kopieren"]])
+        query.icursor("end")
+        query.selection_clear()
+        shown[0][1][1]()   # Einfügen
+        self.assertEqual(query.get(), "abcneu")
+
+    def test_view_source_in_new_tab(self):
+        from anzeiger import net
+        from anzeiger.layout import render_html
+        tab = self.app.tab
+        tab._show(render_html("<p>Hallo</p>", "https://a.de/x#teil"))
+        response = net.Response("https://a.de/x", 200, "OK", "text/html", "utf-8", b"<p>Hallo</p>")
+        with mock.patch("anzeiger.net.fetch", return_value=response) as fetch:
+            tab.view_source()
+            source = self.app.tab
+            self.assertIsNot(source, tab)
+            self.wait_loaded(source)
+        fetch.assert_called_once_with("https://a.de/x")
+        self.assertEqual(source.current_url, "view-source:https://a.de/x")
+        self.assertEqual(source.page.title, "Quelltext: https://a.de/x")
+        self.assertIn("<p>Hallo</p>", source.view.text.get("1.0", "end"))
+        self.assertIs(source.secure, True)
+        self.assertEqual(self.app.tabs.index(source), self.app.tabs.index(tab) + 1)
+        self.assertTrue(self.app.allowed("view-source:http://a.de/"))
+        picture = net.Response("https://a.de/b.png", 200, "OK", "image/png", None, b"\x89PNG")
+        from anzeiger.app import Tab
+        self.assertEqual(Tab._source_page(picture).title, "Fehler")
+
+    def test_save_image(self):
+        from anzeiger import net
+        png, _data = self.picture()
+        tab = self.app.tab
+        target = os.path.join(self.tmp.name, "bild.png")
+        response = net.Response("https://a.de/b.png", 200, "OK", "image/png", None, png)
+        with (mock.patch("anzeiger.app.filedialog.asksaveasfilename", return_value=target) as ask,
+              mock.patch("anzeiger.net.fetch", return_value=response)):
+            tab.save_image("https://a.de/bilder/b%C3%A4r.png")
+            for _ in range(200):
+                self.app._poll()
+                if os.path.exists(target) and "gespeichert" in self.app.status.get():
+                    break
+                time.sleep(0.01)
+        self.assertEqual(ask.call_args.kwargs["initialfile"], "bär.png")
+        with open(target, "rb") as file:
+            self.assertEqual(file.read(), png)
+        self.assertEqual(self.app.status.get(), f"Bild gespeichert: {target}")
 
     def test_poll_leaves_rest_for_next_round(self):
         tab = self.app.tab

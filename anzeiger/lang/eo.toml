@@ -73,6 +73,19 @@ image_button = "Bildbutono"
 button = "Butono"
 choose_file = "Elekti dosieron …"
 
+[context]
+copy = "Kopii"
+paste = "Alglui"
+open_link_new_tab = "Malfermi ligilon en nova langeto"
+open_image_new_tab = "Malfermi bildon en nova langeto"
+save_image = "Elŝuti bildon kiel …"
+save_title = "Konservi bildon"
+image_file = "bildo"
+saved = "Bildo konservita: {path}"
+save_failed = "Bildo ne konservita ({error}): {url}"
+view_source = "Montri fontotekston de la paĝo"
+source_title = "Fontoteksto: {url}"
+
 [layout]
 redirect = "Alidirekto al: "
 frame = "[Kadro: {url}]"
@@ -194,6 +207,7 @@ reopen_tab = ["Ctrl+Shift+T", "Remalfermi fermitan langeton"]
 cycle_tabs = ["Ctrl+Tab / Ctrl+Shift+Tab", "Sekva / antaŭa langeto (ankaŭ Ctrl+PgDn / Ctrl+PgUp)"]
 select_tab = ["Ctrl+1 … Ctrl+8, Ctrl+9", "Langeto numero 1 ĝis 8, lasta langeto"]
 link_new_tab = ["Meza klako aŭ Ctrl+klako sur ligilo", "Malfermi ligilon en nova fona langeto"]
+context_menu = ["Dekstra klako en la paĝo", "Kunteksta menuo: kopii, alglui, ligilo aŭ bildo en nova langeto, elŝuti bildon, fontoteksto"]
 submit = ["Enigklavo en tekstkampo", "Sendi la formularon"]
 reload = ["F5", "Reŝargi"]
 find = ["Ctrl+F, F3 / Shift+F3", "Serĉi en la paĝo, sekva / antaŭa trovo"]

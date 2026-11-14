@@ -41,7 +41,7 @@ class PageContext:
 
 # Zeilen der Tastenkürzel-Tabelle auf der Startseite ([page.start.rows] der Sprachdatei)
 SHORTCUT_ROWS = ("address", "back_forward", "home", "bookmark", "manage", "zoom", "zoom_reset", "notes",
-                 "new_tab", "close_tab", "reopen_tab", "cycle_tabs", "select_tab", "link_new_tab",
+                 "new_tab", "close_tab", "reopen_tab", "cycle_tabs", "select_tab", "link_new_tab", "context_menu",
                  "submit", "find", "reload", "stop")
 
 
